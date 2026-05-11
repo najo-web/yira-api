@@ -1,0 +1,129 @@
+# ============================================================
+# YIRA Africa — docker-compose.yml
+# 5 bases PostgreSQL isolées + Redis + API NestJS
+# Windows : lancer depuis PowerShell dans C:\dev\yira-api
+# ============================================================
+
+version: '3.9'
+
+services:
+
+  # ── base_sync (Auth, Config, IAConfig, Paiements, Audit) ──
+  db_sync:
+    image: postgres:16-alpine
+    container_name: yira_db_sync
+    environment:
+      POSTGRES_USER: yira
+      POSTGRES_PASSWORD: yira2026
+      POSTGRES_DB: yira_sync
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_sync_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira -d yira_sync']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── base_orientation (Psychométrie AES-256, Profils, Trust Index) ──
+  db_orientation:
+    image: postgres:16-alpine
+    container_name: yira_db_orientation
+    environment:
+      POSTGRES_USER: yira
+      POSTGRES_PASSWORD: yira2026
+      POSTGRES_DB: yira_orientation
+    ports:
+      - '5433:5432'
+    volumes:
+      - db_orientation_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira -d yira_orientation']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── base_game (Quiz VAS, Gamification, XP) ──
+  db_game:
+    image: postgres:16-alpine
+    container_name: yira_db_game
+    environment:
+      POSTGRES_USER: yira
+      POSTGRES_PASSWORD: yira2026
+      POSTGRES_DB: yira_game
+    ports:
+      - '5434:5432'
+    volumes:
+      - db_game_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira -d yira_game']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── base_etude (Études socio-éco, ODD) ──
+  db_etude:
+    image: postgres:16-alpine
+    container_name: yira_db_etude
+    environment:
+      POSTGRES_USER: yira
+      POSTGRES_PASSWORD: yira2026
+      POSTGRES_DB: yira_etude
+    ports:
+      - '5435:5432'
+    volumes:
+      - db_etude_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira -d yira_etude']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── base_sos (Données vulnérables — AES-256 double couche) ──
+  # RÈGLE : SOS_ADMIN UNIQUEMENT — accès restreint
+  db_sos:
+    image: postgres:16-alpine
+    container_name: yira_db_sos
+    environment:
+      POSTGRES_USER: yira_sos
+      POSTGRES_PASSWORD: yira_sos_2026_secure
+      POSTGRES_DB: yira_sos
+    ports:
+      - '5436:5432'
+    volumes:
+      - db_sos_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira_sos -d yira_sos']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (Cache + Bull Queue) ──
+  redis:
+    image: redis:7-alpine
+    container_name: yira_redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_sync_data:
+  db_orientation_data:
+  db_game_data:
+  db_etude_data:
+  db_sos_data:
+  redis_data:

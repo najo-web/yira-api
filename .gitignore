@@ -1,0 +1,19 @@
+# ── Node ──────────────────────────────────────────────────────
+node_modules/
+dist/
+
+# ── Environnement — JAMAIS sur GitHub ────────────────────────
+.env
+.env.local
+.env.production
+
+# ── Prisma ────────────────────────────────────────────────────
+prisma/migrations/
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── OS Windows ───────────────────────────────────────────────
+Thumbs.db
+desktop.ini

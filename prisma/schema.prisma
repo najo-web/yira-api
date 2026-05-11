@@ -1,0 +1,25 @@
+// ============================================================
+// YIRA — prisma/schema.prisma
+// Schema minimal pour démarrer — base_sync uniquement
+// On ajoutera les autres modèles sprint par sprint
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_SYNC_URL")
+}
+
+// Modèle minimal pour générer le client Prisma
+// Les vrais modèles arrivent au Sprint 2
+model YiraConfigPays {
+  id           String  @id @default(cuid())
+  country_code String  @unique
+  nom          String
+  actif        Boolean @default(true)
+
+  @@map("yira_config_pays")
+}
