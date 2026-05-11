@@ -1,20 +1,22 @@
 // ============================================================
-// YIRA — src/app.module.ts  (Sprint 4A — OsModule ajouté)
+// YIRA — src/app.module.ts  (Sprint 4B — AssessmentModule)
 // ============================================================
-import { Module }         from '@nestjs/common';
-import { ConfigModule }   from '@nestjs/config';
-import { DatabaseModule } from './database/database.module';
-import { AuthModule }     from './auth/auth.module';
-import { IaModule }       from './ia/ia.module';
-import { OsModule }       from './modules/os/os.module';
+import { Module }               from '@nestjs/common';
+import { ConfigModule }         from '@nestjs/config';
+import { DatabaseModule }       from './database/database.module';
+import { AuthModule }           from './auth/auth.module';
+import { IaModule }             from './ia/ia.module';
+import { OsModule }             from './modules/os/os.module';
+import { AssessmentModule }     from './modules/assessment/assessment.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, cache: true }),
-    DatabaseModule,   // ② 5 bases PostgreSQL
-    IaModule,         // ③ Gemini + Claude
-    AuthModule,       // ④ JWT + OTP
-    OsModule,         // ⑤ Orientation Scolaire ← nouveau
+    DatabaseModule,
+    IaModule,
+    AuthModule,
+    OsModule,
+    AssessmentModule,  // ← Sprint 4B
   ],
 })
 export class AppModule {}
