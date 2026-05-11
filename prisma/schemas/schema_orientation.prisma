@@ -1,11 +1,10 @@
 // ============================================================
-// YIRA — prisma/schema_orientation.prisma  (Sprint 6)
-// base_orientation : Profils · Sessions · Trust Index
+// YIRA — prisma/schemas/schema_orientation.prisma  (fix output)
 // ============================================================
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/@prisma/client"
+  output   = "../../node_modules/@prisma/client-orientation"
 }
 
 datasource db {
@@ -13,7 +12,6 @@ datasource db {
   url      = env("DATABASE_ORIENTATION_URL")
 }
 
-// ── Sessions d'évaluation ─────────────────────────────────────
 model YiraSession {
   id               String   @id @default(cuid())
   beneficiaire_id  String
@@ -23,7 +21,6 @@ model YiraSession {
   statut           String   @default("EN_COURS")
   created_at       DateTime @default(now())
   completed_at     DateTime?
-
   profil           YiraProfilRiasec?
   rapport          YiraRapportNie?
 
@@ -31,89 +28,69 @@ model YiraSession {
   @@map("yira_session")
 }
 
-// ── Profil RIASEC ─────────────────────────────────────────────
 model YiraProfilRiasec {
   id            String   @id @default(cuid())
   session_id    String   @unique
   telephone     String
   country_code  String   @default("CI")
-
-  // Scores RIASEC 0-100
   score_r       Int      @default(0)
   score_i       Int      @default(0)
   score_a       Int      @default(0)
   score_s       Int      @default(0)
   score_e       Int      @default(0)
   score_c       Int      @default(0)
-  code_holland  String   // ex: "IES"
-  dominant      String   // ex: "Investigateur"
-
-  // Big Five
+  code_holland  String
+  dominant      String
   bf_o          Int?
   bf_c          Int?
   bf_e          Int?
   bf_a          Int?
   bf_n          Int?
-
-  // Valeurs
   v1_autonomie      Int?
   v2_impact         Int?
   v3_securite       Int?
   v4_excellence     Int?
   v5_lien_social    Int?
   v6_reconnaissance Int?
-
-  // Aptitudes
   apt_verbal    Int?
   apt_numerique Int?
   apt_logique   Int?
   apt_spatial   Int?
   apt_creativite Int?
   apt_global    Int?
-
-  // Scores synthèse
   mo_calculee   Float?
   scg           Int      @default(0)
   trust_index   Int      @default(0)
   signal_conscience String @default("COHERENT")
-
   created_at    DateTime @default(now())
-
   session       YiraSession @relation(fields: [session_id], references: [id])
 
   @@index([telephone, country_code])
   @@map("yira_profil_riasec")
 }
 
-// ── Rapport NIE ───────────────────────────────────────────────
 model YiraRapportNie {
   id                    String   @id @default(cuid())
   session_id            String   @unique
   telephone             String
   country_code          String   @default("CI")
-
   contenu               String   @db.Text
   filieres_recommandees String[]
   model_used            String
   latency_ms            Int
-
-  // Verrou ISO 10667 — restitution au bénéficiaire EN PREMIER
   restitution_faite     Boolean  @default(false)
   restitution_at        DateTime?
-
   created_at            DateTime @default(now())
-
   session               YiraSession @relation(fields: [session_id], references: [id])
 
   @@map("yira_rapport_nie")
 }
 
-// ── Trust Index ───────────────────────────────────────────────
 model YiraTrustIndex {
   id               String   @id @default(cuid())
   telephone        String
   country_code     String   @default("CI")
-  score_global     Int      // 0-100
+  score_global     Int
   eligible_b2c     Boolean  @default(false)
   eligible_b2b     Boolean  @default(false)
   eligible_b2g     Boolean  @default(false)
