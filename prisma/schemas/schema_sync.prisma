@@ -1,0 +1,106 @@
+// ============================================================
+// YIRA — prisma/schema_sync.prisma  (Sprint 6)
+// base_sync : Auth · Config · IAConfig · Audit · OTP
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_SYNC_URL")
+}
+
+// ── Utilisateurs ──────────────────────────────────────────────
+model YiraUtilisateur {
+  id               String   @id @default(cuid())
+  telephone        String?
+  email            String?  @unique
+  hashedPassword   String?  @default("")
+  nom              String?
+  prenom           String?
+  role             String   @default("BENEFICIAIRE")
+  country_code     String   @default("CI")
+  actif            Boolean  @default(true)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@unique([telephone, country_code])
+  @@map("yira_utilisateur")
+}
+
+// ── OTP temporaires ───────────────────────────────────────────
+model YiraOtpTemp {
+  id           String   @id @default(cuid())
+  telephone    String
+  country_code String   @default("CI")
+  code         String
+  expires_at   DateTime
+  tentatives   Int      @default(0)
+  created_at   DateTime @default(now())
+
+  @@unique([telephone, country_code])
+  @@map("yira_otp_temp")
+}
+
+// ── Config Pays ───────────────────────────────────────────────
+model YiraConfigPays {
+  id                String  @id @default(cuid())
+  country_code      String  @unique
+  nom               String
+  code_ussd         String  @default("*7572#")
+  langue_principale String  @default("fr")
+  actif             Boolean @default(true)
+  ussd_timeout_ms   Int     @default(8000)
+
+  @@map("yira_config_pays")
+}
+
+// ── Config IA ─────────────────────────────────────────────────
+model YiraIAConfig {
+  id                String   @id @default(cuid())
+  module            String
+  usage             String
+  pays              String   @default("CI")
+  modele_principal  String   @default("gemini-2.5-flash")
+  modele_fallback   String   @default("claude-haiku-4-5-20251001")
+  prompt_template   String   @db.Text
+  temperature       Float    @default(0.7)
+  max_tokens        Int      @default(2000)
+  actif             Boolean  @default(true)
+
+  @@unique([module, usage, pays])
+  @@map("yira_ia_config")
+}
+
+// ── Logs IA ───────────────────────────────────────────────────
+model YiraIaLog {
+  id           String   @id @default(cuid())
+  module       String
+  usage        String
+  pays         String
+  model_used   String
+  was_fallback Boolean  @default(false)
+  latency_ms   Int
+  success      Boolean
+  error        String?
+  created_at   DateTime @default(now())
+
+  @@map("yira_ia_log")
+}
+
+// ── Audit ─────────────────────────────────────────────────────
+model YiraAuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  acteur_id    String?
+  acteur_type  String?
+  ressource    String?
+  details      Json?
+  pays         String   @default("CI")
+  created_at   DateTime @default(now())
+
+  @@map("yira_audit_log")
+}
