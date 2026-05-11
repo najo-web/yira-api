@@ -1,17 +1,13 @@
 // ============================================================
-// YIRA — src/auth/auth.service.ts
-// Login email · OTP SMS · Refresh token · Profil
+// YIRA — src/auth/auth.service.ts  (Sprint 9 — OTP en BDD)
+// OTP stocké dans YiraOtpTemp (base_sync)
+// Utilisateurs persistants dans YiraUtilisateur
 // ============================================================
-import {
-  Injectable, UnauthorizedException,
-  BadRequestException, NotFoundException, Logger,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger, OnModuleInit } from '@nestjs/common';
 import { JwtService }    from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt       from 'bcryptjs';
-import { PrismaClient }  from '@prisma/client';
-import { Inject }        from '@nestjs/common';
-import { PRISMA_SYNC }   from '../database/database.module';
+import { Pool }          from 'pg';
 
 export enum RoleUtilisateur {
   BENEFICIAIRE  = 'BENEFICIAIRE',
@@ -28,6 +24,7 @@ export interface JwtPayload {
   telephone:    string;
   role:         RoleUtilisateur;
   country_code: string;
+  niveau_acces: string;
 }
 
 export interface TokenPair {
@@ -36,82 +33,101 @@ export interface TokenPair {
   expires_in:    number;
 }
 
-// OTP stocké en mémoire (on migrera en BDD au Sprint 3 avec Prisma migrations)
-const otpStore = new Map<string, { code: string; expires: Date; attempts: number }>();
-
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
+  private pool: Pool;
 
   constructor(
     private jwtService:  JwtService,
     private config:      ConfigService,
-    @Inject(PRISMA_SYNC) private prisma: PrismaClient,
   ) {}
 
-  // ── 1. Demander un OTP SMS ─────────────────────────────────
+  async onModuleInit() {
+    this.pool = new Pool({ connectionString: this.config.get('DATABASE_SYNC_URL') });
+    await this.pool.connect().then(c => { c.release(); });
+    this.logger.log('OK AuthService connecte a base_sync (pg)');
+  }
+
+  // ── 1. Demander OTP ───────────────────────────────────────
   async demanderOTP(telephone: string, country_code: string): Promise<{ message: string }> {
     const code      = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    const key       = `${telephone}_${country_code}`;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    otpStore.set(key, { code, expires: expiresAt, attempts: 0 });
+    // Supprimer l'ancien OTP si existe
+    await this.pool.query(
+      'DELETE FROM yira_otp_temp WHERE telephone = $1 AND country_code = $2',
+      [telephone, country_code]
+    );
 
-    // En dev : afficher le code dans les logs (en prod → LAfricaMobile SMS)
-    this.logger.log(`📱 OTP pour ${telephone} [${country_code}] : ${code}`);
+    // Insérer le nouvel OTP
+    await this.pool.query(
+      `INSERT INTO yira_otp_temp (id, telephone, country_code, code, expires_at, tentatives)
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 0)`,
+      [telephone, country_code, code, expiresAt]
+    );
+
+    // En dev : afficher dans les logs (en prod → LAfricaMobile SMS)
+    this.logger.log(`OTP pour ${telephone} [${country_code}] : ${code}`);
 
     return { message: `Code envoyé au ${telephone}. Valable 10 minutes.` };
   }
 
-  // ── 2. Vérifier l'OTP et retourner les tokens ─────────────
+  // ── 2. Vérifier OTP ───────────────────────────────────────
   async verifierOTP(telephone: string, code: string, country_code: string): Promise<TokenPair> {
-    const key  = `${telephone}_${country_code}`;
-    const data = otpStore.get(key);
+    // Récupérer l'OTP en BDD
+    const res = await this.pool.query(
+      'SELECT * FROM yira_otp_temp WHERE telephone = $1 AND country_code = $2',
+      [telephone, country_code]
+    );
 
-    if (!data)
+    if (res.rows.length === 0)
       throw new UnauthorizedException('Code expiré — demandez un nouveau');
-    if (new Date() > data.expires) {
-      otpStore.delete(key);
+
+    const otp = res.rows[0];
+
+    // Vérifier expiration
+    if (new Date() > new Date(otp.expires_at)) {
+      await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
       throw new UnauthorizedException('Code expiré');
     }
-    if (data.attempts >= 3) {
-      otpStore.delete(key);
+
+    // Vérifier tentatives
+    if (otp.tentatives >= 3) {
+      await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
       throw new UnauthorizedException('Trop de tentatives — demandez un nouveau code');
     }
-    if (data.code !== code) {
-      data.attempts++;
-      throw new UnauthorizedException(
-        `Code incorrect — ${3 - data.attempts} tentative(s) restante(s)`
+
+    // Vérifier le code
+    if (otp.code !== code) {
+      await this.pool.query(
+        'UPDATE yira_otp_temp SET tentatives = tentatives + 1 WHERE id = $1',
+        [otp.id]
       );
+      const restantes = 3 - (otp.tentatives + 1);
+      throw new UnauthorizedException(`Code incorrect — ${restantes} tentative(s) restante(s)`);
     }
 
-    otpStore.delete(key);
+    // OTP valide — supprimer
+    await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
 
-    // Créer ou récupérer l'utilisateur
-    let user: any;
-    try {
-      user = await (this.prisma as any).yiraUtilisateur?.findFirst({
-        where: { telephone, country_code },
-      });
-    } catch { user = null; }
-
-    if (!user) {
-      // Utilisateur fictif en attendant les migrations Prisma
-      user = { id: `user_${Date.now()}`, telephone, country_code, role: RoleUtilisateur.BENEFICIAIRE };
-    }
+    // Récupérer ou créer l'utilisateur
+    const user = await this.obtenirOuCreerUtilisateur(telephone, country_code);
 
     return this.genererTokens(user);
   }
 
-  // ── 3. Refresh token ───────────────────────────────────────
+  // ── 3. Refresh token ──────────────────────────────────────
   async refreshTokens(refresh_token: string): Promise<TokenPair> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refresh_token, {
         secret: this.config.get('JWT_SECRET') + '_refresh',
       });
-      return this.genererTokens({
+      const user = await this.obtenirUtilisateur(payload.sub);
+      return this.genererTokens(user ?? {
         id: payload.sub, telephone: payload.telephone,
         role: payload.role, country_code: payload.country_code,
+        niveau_acces: payload.niveau_acces ?? 'FREE',
       });
     } catch {
       throw new UnauthorizedException('Refresh token invalide');
@@ -119,10 +135,39 @@ export class AuthService {
   }
 
   // ── Helpers ────────────────────────────────────────────────
-  genererTokens(user: { id: string; telephone: string; role: string; country_code: string }): TokenPair {
+  private async obtenirOuCreerUtilisateur(telephone: string, country_code: string): Promise<any> {
+    // Chercher l'utilisateur existant
+    const res = await this.pool.query(
+      'SELECT * FROM yira_utilisateur WHERE telephone = $1 AND country_code = $2',
+      [telephone, country_code]
+    );
+
+    if (res.rows.length > 0) return res.rows[0];
+
+    // Créer un nouvel utilisateur
+    const id = `user_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    await this.pool.query(
+      `INSERT INTO yira_utilisateur (id, telephone, country_code, role, niveau_acces, actif, updated_at)
+       VALUES ($1, $2, $3, 'BENEFICIAIRE', 'FREE', true, NOW())`,
+      [id, telephone, country_code]
+    );
+
+    this.logger.log(`Nouvel utilisateur créé: ${telephone} [${country_code}]`);
+    return { id, telephone, country_code, role: 'BENEFICIAIRE', niveau_acces: 'FREE' };
+  }
+
+  private async obtenirUtilisateur(id: string): Promise<any> {
+    const res = await this.pool.query('SELECT * FROM yira_utilisateur WHERE id = $1', [id]);
+    return res.rows.length > 0 ? res.rows[0] : null;
+  }
+
+  genererTokens(user: { id: string; telephone: string; role: string; country_code: string; niveau_acces?: string }): TokenPair {
     const payload: JwtPayload = {
-      sub: user.id, telephone: user.telephone,
-      role: user.role as RoleUtilisateur, country_code: user.country_code,
+      sub:          user.id,
+      telephone:    user.telephone,
+      role:         user.role as RoleUtilisateur,
+      country_code: user.country_code,
+      niveau_acces: user.niveau_acces ?? 'FREE',
     };
     const access_token = this.jwtService.sign(payload, {
       expiresIn: this.config.get('JWT_EXPIRY', '7d'),
