@@ -1,27 +1,16 @@
 // ============================================================
-// YIRA — src/app.module.ts  (Sprint 1)
-// On ajoute les modules au fur et à mesure
+// YIRA — src/app.module.ts  (Sprint 2 — Auth ajouté)
 // ============================================================
 import { Module }         from '@nestjs/common';
 import { ConfigModule }   from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule }     from './auth/auth.module';
 
 @Module({
   imports: [
-    // ① Config — TOUJOURS EN PREMIER
-    ConfigModule.forRoot({
-      isGlobal: true,
-      cache:    true,
-    }),
-
-    // ② Les 5 bases PostgreSQL isolées
+    ConfigModule.forRoot({ isGlobal: true, cache: true }),
     DatabaseModule,
-
-    // La suite arrive sprint par sprint :
-    // ③ RedisModule
-    // ④ IaModule
-    // ⑤ AuthModule
-    // ...
+    AuthModule,   // ← nouveau Sprint 2
   ],
 })
 export class AppModule {}
