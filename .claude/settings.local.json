@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item \"c:\\\\Users\\\\NAJO\\\\yira-api\\\\src\\\\modules\\\\freemium\\\\generate-all.ps1\")",
+      "PowerShell(cmd /c \"dir c:\\\\Users\\\\NAJO\\\\yira-api\\\\node_modules\\\\@prisma\\\\client-sync\")"
+    ]
+  }
+}
