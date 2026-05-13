@@ -1,5 +1,5 @@
 // ============================================================
-// YIRA — prisma/schemas/schema_orientation.prisma  (fix output)
+// YIRA - prisma/schemas/schema_orientation.prisma
 // ============================================================
 
 generator client {
@@ -99,3 +99,197 @@ model YiraTrustIndex {
   @@index([telephone, country_code])
   @@map("yira_trust_index")
 }
+
+// ============================================================
+// YIRA â€” AJOUTS schema_orientation â€” Sprint 10
+// Ã€ COLLER Ã€ LA FIN de prisma/schemas/schema_orientation.prisma
+// NE PAS remplacer le fichier â€” AJOUTER Ã  la fin
+// Puis lancer : generate-all.ps1 (orientation EN DERNIER)
+// ============================================================
+
+model YiraSerieBAC {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  nom       String
+  domaine   String
+  notes_bac YiraNoteScolaire[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("yira_serie_bac")
+}
+
+model YiraNoteScolaire {
+  id                String   @id @default(cuid())
+  utilisateur_id    String
+  type_examen       String
+  note_maths        Float?
+  note_francais     Float?
+  note_anglais      Float?
+  note_svt          Float?
+  note_physique     Float?
+  note_histoire_geo Float?
+  note_eps          Float?
+  note_philo        Float?
+  note_lv2          Float?
+  note_specialite   Float?
+  serie_bac_code    String?
+  mention           String?
+  moyenne_bac       Float?
+  score_bepc        Float?
+  mo_calculee       Float?
+  profil_academique String?
+  est_officiel      Boolean  @default(false)
+  source            String?
+  affectation_reelle String?
+  reussite_2nde     Boolean?
+  moyenne_2nde      Float?
+  serie_bac         YiraSerieBAC? @relation(fields: [serie_bac_code], references: [code])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([utilisateur_id])
+  @@index([type_examen])
+  @@map("yira_note_scolaire")
+}
+
+model YiraFiliereUniversite {
+  id               String  @id @default(cuid())
+  code             String  @unique
+  nom              String
+  domaine          String
+  series_bac       String
+  age_max          Int
+  criteres_acces   String
+  universites      String
+  duree_annees     Int
+  debouches        String
+  riasec_vecteur   String
+  roi_index        Float
+  salaire_moy_fcfa Int
+  taux_emploi      Float
+  nb_recommandations Int   @default(0)
+  taux_insertion_reel Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("yira_filiere_universite")
+}
+
+model YiraFiliereBTS {
+  id               String  @id @default(cuid())
+  code             String  @unique
+  nom              String
+  domaine          String
+  duree_annees     Int
+  debouches        String
+  riasec_vecteur   String
+  roi_index        Float
+  salaire_moy_fcfa Int
+  taux_emploi      Float
+  nb_ecoles_ci     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("yira_filiere_bts")
+}
+
+model YiraEtablissement {
+  id                String  @id @default(cuid())
+  code              String  @unique
+  nom               String
+  type              String
+  zone              String
+  ville             String
+  filieres_codes    String
+  frais_annuels_fcfa Int
+  acces             String
+  capacite_index    Int
+  latitude          Float?
+  longitude         Float?
+  telephone         String?
+  site_web          String?
+  numero_agrement   String?
+  source_mesrs      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([ville])
+  @@index([type])
+  @@map("yira_etablissement")
+}
+
+model YiraProfilAcademique {
+  id             String  @id @default(cuid())
+  code           String  @unique
+  label          String
+  conditions     String
+  voie_naturelle String
+  riasec_match   String
+  createdAt DateTime @default(now())
+  @@map("yira_profil_academique")
+}
+
+model YiraSeuilDOB {
+  id              String  @id @default(cuid())
+  filiere         String
+  region          String
+  seuil           Float
+  tendance        Float
+  places          Int
+  seuil_reel_annee_precedente Float?
+  taux_precision  Float?
+  annee_scolaire  String  @default("2025-2026")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([filiere, region], name: "filiere_region")
+  @@index([region])
+  @@map("yira_seuil_dob")
+}
+
+model YiraEvaluationTiers {
+  id              String  @id @default(cuid())
+  utilisateur_id  String
+  fournisseur     String
+  type_test       String
+  version         String
+  scores_bruts    String
+  scores_calibres String?
+  alpha_cronbach  Float?
+  score_coherence Float?
+  trust_contribution Int
+  est_valide      Boolean @default(true)
+  fraude_detectee Boolean @default(false)
+  duree_minutes   Float?
+  createdAt DateTime @default(now())
+  @@index([utilisateur_id])
+  @@index([fournisseur])
+  @@map("yira_evaluation_tiers")
+}
+
+model YiraAnalyseOS {
+  id                     String   @id @default(cuid())
+  utilisateur_id         String
+  type_moteur            String
+  mo_calculee            Float?
+  profil_academique      String?
+  code_riasec            String?
+  top1_filiere_code      String?
+  top1_score_global      Float?
+  simulation_dob         String?
+  plan_action            String?
+  rapport_nie_hash       String?
+  trust_index_ajout      Int      @default(35)
+  filiere_reelle_choisie String?
+  satisfaction           String?
+  reussite               Boolean?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([utilisateur_id])
+  @@index([type_moteur])
+  @@map("yira_analyse_os")
+}
+
+
+// ============================================================
+// YIRA â€” AJOUTS schema_orientation â€” Sprint 10
+// Ã€ COLLER Ã€ LA FIN de prisma/schemas/schema_orientation.prisma
+// NE PAS remplacer le fichier â€” AJOUTER Ã  la fin
+// Puis lancer : generate-all.ps1 (orientation EN DERNIER)
+// ============================================================
+
