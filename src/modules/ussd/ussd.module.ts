@@ -1,15 +1,14 @@
-// ============================================================
-// YIRA — src/modules/ussd/ussd.module.ts
-// ============================================================
-import { Module }         from '@nestjs/common';
-import { UssdService }    from './ussd.service';
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { UssdService } from './ussd.service';
 import { UssdController } from './ussd.controller';
-import { OsModule }       from '../os/os.module';
+import { UssdSessionService } from './ussd-session.service';
+import { OsModule } from '../os/os.module';
 
 @Module({
-  imports:     [OsModule],
+  imports:     [OsModule, ConfigModule],
   controllers: [UssdController],
-  providers:   [UssdService],
-  exports:     [UssdService],
+  providers:   [UssdService, UssdSessionService],
+  exports:     [UssdService, UssdSessionService],
 })
 export class UssdModule {}

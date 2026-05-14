@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client-game"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_GAME")
+}
+
+model YiraGameAgent {
+  id           String   @id @default(uuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
+  service_code String   @db.VarChar(50)
+  agent_name   String
+  modele_ia    String   @default("gemini-2.5-flash")
+  actif        Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now())
+  @@unique([service_code, tenant_id])
+  @@map("yira_game_agent")
+}
+
+model YiraGameQuestion {
+  id           String    @id @default(uuid())
+  tenant_id    String    @default("CI") @db.VarChar(10)
+  service_code String    @db.VarChar(50)
+  agent_id     String
+  question     String
+  option_a     String
+  option_b     String
+  option_c     String
+  bonne_rep    String    @db.VarChar(1)
+  explication  String?
+  difficulte   Int       @default(1)
+  actif        Boolean   @default(true)
+  genere_at    DateTime  @default(now())
+  expire_at    DateTime?
+  created_at   DateTime  @default(now())
+  @@index([service_code, tenant_id, actif])
+  @@map("yira_game_question")
+}
+
+model YiraGameScore {
+  id              String   @id @default(uuid())
+  tenant_id       String   @default("CI") @db.VarChar(10)
+  telephone       String
+  service_code    String   @db.VarChar(50)
+  score_total     Int      @default(0)
+  parties_jouees  Int      @default(0)
+  bonnes_rep      Int      @default(0)
+  serie_actuelle  Int      @default(0)
+  meilleure_serie Int      @default(0)
+  updated_at      DateTime @default(now())
+  created_at      DateTime @default(now())
+  @@unique([telephone, service_code, tenant_id])
+  @@map("yira_game_score")
+}
+
+model YiraGameHistorique {
+  id           String   @id @default(uuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
+  telephone    String
+  service_code String   @db.VarChar(50)
+  question_id  String
+  reponse      String?  @db.VarChar(1)
+  correcte     Boolean  @default(false)
+  duree_ms     Int?
+  canal        String   @default("USSD")
+  created_at   DateTime @default(now())
+  @@index([telephone, tenant_id])
+  @@map("yira_game_historique")
+}
+
+model YiraGameOptInLog {
+  id           String   @id @default(uuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
+  telephone    String
+  service_code String   @db.VarChar(50)
+  action       String
+  canal        String   @default("USSD")
+  ip_address   String?
+  created_at   DateTime @default(now())
+  @@index([telephone, service_code, tenant_id])
+  @@map("yira_game_opt_in_log")
+}
+
+model YiraGameFacturation {
+  id            String    @id @default(uuid())
+  tenant_id     String    @default("CI") @db.VarChar(10)
+  telephone     String
+  service_code  String    @db.VarChar(50)
+  montant_fcfa  Int
+  operateur     String
+  statut        String    @default("EN_ATTENTE")
+  reference_ext String?
+  artci_periode String
+  facture_at    DateTime  @default(now())
+  confirme_at   DateTime?
+  @@index([telephone, tenant_id])
+  @@map("yira_game_facturation")
+}
+
+model YiraSmsTpl {
+  id           String   @id @default(uuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
+  service_code String   @db.VarChar(50)
+  type_tpl     String
+  corps        String
+  actif        Boolean  @default(true)
+  created_at   DateTime @default(now())
+  @@unique([service_code, type_tpl, tenant_id])
+  @@map("yira_sms_tpl")
+}

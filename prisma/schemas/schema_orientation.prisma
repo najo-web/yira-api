@@ -1,295 +1,97 @@
-// ============================================================
-// YIRA - prisma/schemas/schema_orientation.prisma
-// ============================================================
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../../node_modules/@prisma/client-orientation"
+  output   = "../../node_modules/.prisma/client-orientation"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_ORIENTATION_URL")
+  url      = env("DATABASE_URL_ORIENTATION")
 }
 
-model YiraSession {
-  id               String   @id @default(cuid())
-  beneficiaire_id  String
-  telephone        String
-  country_code     String   @default("CI")
-  canal            String   @default("APP")
-  statut           String   @default("EN_COURS")
-  created_at       DateTime @default(now())
-  completed_at     DateTime?
-  profil           YiraProfilRiasec?
-  rapport          YiraRapportNie?
-
+model YiraSessionOrientation {
+  id              String    @id @default(cuid())
+  tenant_id       String    @default("CI") @db.VarChar(10)
+  beneficiaire_id String
+  telephone       String
+  country_code    String    @default("CI")
+  canal           String    @default("APP")
+  statut          String    @default("EN_COURS")
+  created_at      DateTime  @default(now())
+  completed_at    DateTime?
+  profil          YiraProfilRiasec?
+  rapport         YiraRapportNie?
   @@index([telephone, country_code])
   @@map("yira_session")
 }
 
 model YiraProfilRiasec {
-  id            String   @id @default(cuid())
-  session_id    String   @unique
-  telephone     String
-  country_code  String   @default("CI")
-  score_r       Int      @default(0)
-  score_i       Int      @default(0)
-  score_a       Int      @default(0)
-  score_s       Int      @default(0)
-  score_e       Int      @default(0)
-  score_c       Int      @default(0)
-  code_holland  String
-  dominant      String
-  bf_o          Int?
-  bf_c          Int?
-  bf_e          Int?
-  bf_a          Int?
-  bf_n          Int?
+  id                String   @id @default(cuid())
+  tenant_id         String   @default("CI") @db.VarChar(10)
+  session_id        String   @unique
+  telephone         String
+  country_code      String   @default("CI")
+  score_r           Int      @default(0)
+  score_i           Int      @default(0)
+  score_a           Int      @default(0)
+  score_s           Int      @default(0)
+  score_e           Int      @default(0)
+  score_c           Int      @default(0)
+  code_holland      String
+  dominant          String
+  bf_o              Int?
+  bf_c              Int?
+  bf_e              Int?
+  bf_a              Int?
+  bf_n              Int?
   v1_autonomie      Int?
   v2_impact         Int?
   v3_securite       Int?
   v4_excellence     Int?
   v5_lien_social    Int?
   v6_reconnaissance Int?
-  apt_verbal    Int?
-  apt_numerique Int?
-  apt_logique   Int?
-  apt_spatial   Int?
-  apt_creativite Int?
-  apt_global    Int?
-  mo_calculee   Float?
-  scg           Int      @default(0)
-  trust_index   Int      @default(0)
-  signal_conscience String @default("COHERENT")
-  created_at    DateTime @default(now())
-  session       YiraSession @relation(fields: [session_id], references: [id])
-
+  apt_verbal        Int?
+  apt_numerique     Int?
+  apt_logique       Int?
+  apt_spatial       Int?
+  apt_creativite    Int?
+  apt_global        Int?
+  mo_calculee       Float?
+  scg               Int      @default(0)
+  trust_index       Int      @default(0)
+  signal_conscience String   @default("COHERENT")
+  created_at        DateTime @default(now())
+  session           YiraSessionOrientation @relation(fields: [session_id], references: [id])
   @@index([telephone, country_code])
   @@map("yira_profil_riasec")
 }
 
 model YiraRapportNie {
-  id                    String   @id @default(cuid())
-  session_id            String   @unique
+  id                    String    @id @default(cuid())
+  tenant_id             String    @default("CI") @db.VarChar(10)
+  session_id            String    @unique
   telephone             String
-  country_code          String   @default("CI")
-  contenu               String   @db.Text
+  country_code          String    @default("CI")
+  contenu               String    @db.Text
   filieres_recommandees String[]
   model_used            String
   latency_ms            Int
-  restitution_faite     Boolean  @default(false)
+  restitution_faite     Boolean   @default(false)
   restitution_at        DateTime?
-  created_at            DateTime @default(now())
-  session               YiraSession @relation(fields: [session_id], references: [id])
-
+  created_at            DateTime  @default(now())
+  session               YiraSessionOrientation @relation(fields: [session_id], references: [id])
   @@map("yira_rapport_nie")
 }
 
 model YiraTrustIndex {
-  id               String   @id @default(cuid())
-  telephone        String
-  country_code     String   @default("CI")
-  score_global     Int
-  eligible_b2c     Boolean  @default(false)
-  eligible_b2b     Boolean  @default(false)
-  eligible_b2g     Boolean  @default(false)
-  calcule_at       DateTime @default(now())
-
+  id           String   @id @default(cuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
+  telephone    String
+  country_code String   @default("CI")
+  score_global Int
+  eligible_b2c Boolean  @default(false)
+  eligible_b2b Boolean  @default(false)
+  eligible_b2g Boolean  @default(false)
+  calcule_at   DateTime @default(now())
   @@index([telephone, country_code])
   @@map("yira_trust_index")
 }
-
-// ============================================================
-// YIRA â€” AJOUTS schema_orientation â€” Sprint 10
-// Ã€ COLLER Ã€ LA FIN de prisma/schemas/schema_orientation.prisma
-// NE PAS remplacer le fichier â€” AJOUTER Ã  la fin
-// Puis lancer : generate-all.ps1 (orientation EN DERNIER)
-// ============================================================
-
-model YiraSerieBAC {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  nom       String
-  domaine   String
-  notes_bac YiraNoteScolaire[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@map("yira_serie_bac")
-}
-
-model YiraNoteScolaire {
-  id                String   @id @default(cuid())
-  utilisateur_id    String
-  type_examen       String
-  note_maths        Float?
-  note_francais     Float?
-  note_anglais      Float?
-  note_svt          Float?
-  note_physique     Float?
-  note_histoire_geo Float?
-  note_eps          Float?
-  note_philo        Float?
-  note_lv2          Float?
-  note_specialite   Float?
-  serie_bac_code    String?
-  mention           String?
-  moyenne_bac       Float?
-  score_bepc        Float?
-  mo_calculee       Float?
-  profil_academique String?
-  est_officiel      Boolean  @default(false)
-  source            String?
-  affectation_reelle String?
-  reussite_2nde     Boolean?
-  moyenne_2nde      Float?
-  serie_bac         YiraSerieBAC? @relation(fields: [serie_bac_code], references: [code])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([utilisateur_id])
-  @@index([type_examen])
-  @@map("yira_note_scolaire")
-}
-
-model YiraFiliereUniversite {
-  id               String  @id @default(cuid())
-  code             String  @unique
-  nom              String
-  domaine          String
-  series_bac       String
-  age_max          Int
-  criteres_acces   String
-  universites      String
-  duree_annees     Int
-  debouches        String
-  riasec_vecteur   String
-  roi_index        Float
-  salaire_moy_fcfa Int
-  taux_emploi      Float
-  nb_recommandations Int   @default(0)
-  taux_insertion_reel Float?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@map("yira_filiere_universite")
-}
-
-model YiraFiliereBTS {
-  id               String  @id @default(cuid())
-  code             String  @unique
-  nom              String
-  domaine          String
-  duree_annees     Int
-  debouches        String
-  riasec_vecteur   String
-  roi_index        Float
-  salaire_moy_fcfa Int
-  taux_emploi      Float
-  nb_ecoles_ci     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@map("yira_filiere_bts")
-}
-
-model YiraEtablissement {
-  id                String  @id @default(cuid())
-  code              String  @unique
-  nom               String
-  type              String
-  zone              String
-  ville             String
-  filieres_codes    String
-  frais_annuels_fcfa Int
-  acces             String
-  capacite_index    Int
-  latitude          Float?
-  longitude         Float?
-  telephone         String?
-  site_web          String?
-  numero_agrement   String?
-  source_mesrs      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([ville])
-  @@index([type])
-  @@map("yira_etablissement")
-}
-
-model YiraProfilAcademique {
-  id             String  @id @default(cuid())
-  code           String  @unique
-  label          String
-  conditions     String
-  voie_naturelle String
-  riasec_match   String
-  createdAt DateTime @default(now())
-  @@map("yira_profil_academique")
-}
-
-model YiraSeuilDOB {
-  id              String  @id @default(cuid())
-  filiere         String
-  region          String
-  seuil           Float
-  tendance        Float
-  places          Int
-  seuil_reel_annee_precedente Float?
-  taux_precision  Float?
-  annee_scolaire  String  @default("2025-2026")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@unique([filiere, region], name: "filiere_region")
-  @@index([region])
-  @@map("yira_seuil_dob")
-}
-
-model YiraEvaluationTiers {
-  id              String  @id @default(cuid())
-  utilisateur_id  String
-  fournisseur     String
-  type_test       String
-  version         String
-  scores_bruts    String
-  scores_calibres String?
-  alpha_cronbach  Float?
-  score_coherence Float?
-  trust_contribution Int
-  est_valide      Boolean @default(true)
-  fraude_detectee Boolean @default(false)
-  duree_minutes   Float?
-  createdAt DateTime @default(now())
-  @@index([utilisateur_id])
-  @@index([fournisseur])
-  @@map("yira_evaluation_tiers")
-}
-
-model YiraAnalyseOS {
-  id                     String   @id @default(cuid())
-  utilisateur_id         String
-  type_moteur            String
-  mo_calculee            Float?
-  profil_academique      String?
-  code_riasec            String?
-  top1_filiere_code      String?
-  top1_score_global      Float?
-  simulation_dob         String?
-  plan_action            String?
-  rapport_nie_hash       String?
-  trust_index_ajout      Int      @default(35)
-  filiere_reelle_choisie String?
-  satisfaction           String?
-  reussite               Boolean?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([utilisateur_id])
-  @@index([type_moteur])
-  @@map("yira_analyse_os")
-}
-
-
-// ============================================================
-// YIRA â€” AJOUTS schema_orientation â€” Sprint 10
-// Ã€ COLLER Ã€ LA FIN de prisma/schemas/schema_orientation.prisma
-// NE PAS remplacer le fichier â€” AJOUTER Ã  la fin
-// Puis lancer : generate-all.ps1 (orientation EN DERNIER)
-// ============================================================
-

@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client-etude"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_ETUDE")
+}
+
+model YiraEnquete {
+  id               String    @id @default(uuid())
+  tenant_id        String    @default("CI") @db.VarChar(10)
+  code             String
+  titre            String
+  type_enquete     String    @default("TERRAIN")
+  statut           String    @default("EN_COURS")
+  bailleur         String?
+  zone_geo         String?
+  population_cible String?
+  date_debut       DateTime?
+  date_fin         DateTime?
+  created_at       DateTime  @default(now())
+  @@unique([code, tenant_id])
+  @@map("yira_enquete")
+}
+
+model YiraReponseAnonymisee {
+  id             String   @id @default(uuid())
+  tenant_id      String   @default("CI") @db.VarChar(10)
+  enquete_id     String
+  repondant_hash String
+  age_tranche    String?
+  genre          String?
+  region         String?
+  milieu         String   @default("URBAIN")
+  niveau_etude   String?
+  secteur        String?
+  reponses       Json
+  created_at     DateTime @default(now())
+  @@index([enquete_id, tenant_id])
+  @@map("yira_reponse_anonymisee")
+}
+
+model YiraKpiPnd {
+  id              String   @id @default(uuid())
+  tenant_id       String   @default("CI") @db.VarChar(10)
+  axe_pnd         String
+  indicateur_code String
+  libelle         String
+  valeur_cible    Decimal?
+  valeur_reelle   Decimal?
+  unite           String?
+  periode         String
+  source          String?
+  created_at      DateTime @default(now())
+  @@unique([indicateur_code, periode, tenant_id])
+  @@map("yira_kpi_pnd")
+}
+
+model YiraKpiOdd {
+  id              String   @id @default(uuid())
+  tenant_id       String   @default("CI") @db.VarChar(10)
+  odd_numero      Int
+  cible_code      String
+  indicateur_code String
+  libelle         String
+  valeur_cible    Decimal?
+  valeur_reelle   Decimal?
+  unite           String?
+  periode         String
+  source          String?
+  created_at      DateTime @default(now())
+  @@unique([indicateur_code, periode, tenant_id])
+  @@map("yira_kpi_odd")
+}
+
+model YiraRapportGenere {
+  id           String   @id @default(uuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
+  enquete_id   String?
+  type_rapport String
+  titre        String
+  contenu_hash String?
+  format       String   @default("PDF")
+  destinataire String?
+  statut       String   @default("GENERE")
+  genere_at    DateTime @default(now())
+  @@index([enquete_id, tenant_id])
+  @@map("yira_rapport_genere")
+}
+
+model YiraExportAudit {
+  id            String   @id @default(uuid())
+  tenant_id     String   @default("CI") @db.VarChar(10)
+  acteur_id     String
+  entite_type   String
+  entite_id     String?
+  format_export String
+  destinataire  String?
+  created_at    DateTime @default(now())
+  @@map("yira_export_audit")
+}

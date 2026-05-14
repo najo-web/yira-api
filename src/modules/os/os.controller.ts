@@ -143,7 +143,13 @@ return { success: true, data: result, moteur: 'YIRA-OS-BAC-v10' };
 
   @Get('bac/careers/:filiere')
   async carriereFiliere(@Param('filiere') filiere: string) {
-    const data = this.bacService.projeterCarriere(filiere);
+    // Create a minimal RecommandationFiliereBac object for projection
+    const minimalRec: any = {
+      nom: filiere,
+      code: filiere,
+      roi: { salaire_moy_fcfa: 500000 }, // Default salary for projection
+    };
+    const data = this.bacService.projeterCarriere(minimalRec);
     return { success: true, data };
   }
 

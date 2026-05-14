@@ -1,6 +1,6 @@
-// ============================================================
-// YIRA — src/auth/auth.service.ts  (Sprint 9 — OTP en BDD)
-// OTP stocké dans YiraOtpTemp (base_sync)
+﻿// ============================================================
+// YIRA â€” src/auth/auth.service.ts  (Sprint 9 â€” OTP en BDD)
+// OTP stockÃ© dans YiraOtpTemp (base_sync)
 // Utilisateurs persistants dans YiraUtilisateur
 // ============================================================
 import { Injectable, UnauthorizedException, Logger, OnModuleInit } from '@nestjs/common';
@@ -44,12 +44,12 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    this.pool = new Pool({ connectionString: this.config.get('DATABASE_SYNC_URL') });
+    this.pool = new Pool({ connectionString: this.config.get('DATABASE_URL_SYNC') });
     await this.pool.connect().then(c => { c.release(); });
     this.logger.log('OK AuthService connecte a base_sync (pg)');
   }
 
-  // ── 1. Demander OTP ───────────────────────────────────────
+  // â”€â”€ 1. Demander OTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async demanderOTP(telephone: string, country_code: string): Promise<{ message: string }> {
     const code      = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -60,64 +60,64 @@ export class AuthService implements OnModuleInit {
       [telephone, country_code]
     );
 
-    // Insérer le nouvel OTP
+    // InsÃ©rer le nouvel OTP
     await this.pool.query(
       `INSERT INTO yira_otp_temp (id, telephone, country_code, code, expires_at, tentatives)
        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 0)`,
       [telephone, country_code, code, expiresAt]
     );
 
-    // En dev : afficher dans les logs (en prod → LAfricaMobile SMS)
+    // En dev : afficher dans les logs (en prod â†’ LAfricaMobile SMS)
     this.logger.log(`OTP pour ${telephone} [${country_code}] : ${code}`);
 
-    return { message: `Code envoyé au ${telephone}. Valable 10 minutes.` };
+    return { message: `Code envoyÃ© au ${telephone}. Valable 10 minutes.` };
   }
 
-  // ── 2. Vérifier OTP ───────────────────────────────────────
+  // â”€â”€ 2. VÃ©rifier OTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async verifierOTP(telephone: string, code: string, country_code: string): Promise<TokenPair> {
-    // Récupérer l'OTP en BDD
+    // RÃ©cupÃ©rer l'OTP en BDD
     const res = await this.pool.query(
       'SELECT * FROM yira_otp_temp WHERE telephone = $1 AND country_code = $2',
       [telephone, country_code]
     );
 
     if (res.rows.length === 0)
-      throw new UnauthorizedException('Code expiré — demandez un nouveau');
+      throw new UnauthorizedException('Code expirÃ© â€” demandez un nouveau');
 
     const otp = res.rows[0];
 
-    // Vérifier expiration
+    // VÃ©rifier expiration
     if (new Date() > new Date(otp.expires_at)) {
       await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
-      throw new UnauthorizedException('Code expiré');
+      throw new UnauthorizedException('Code expirÃ©');
     }
 
-    // Vérifier tentatives
+    // VÃ©rifier tentatives
     if (otp.tentatives >= 3) {
       await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
-      throw new UnauthorizedException('Trop de tentatives — demandez un nouveau code');
+      throw new UnauthorizedException('Trop de tentatives â€” demandez un nouveau code');
     }
 
-    // Vérifier le code
+    // VÃ©rifier le code
     if (otp.code !== code) {
       await this.pool.query(
         'UPDATE yira_otp_temp SET tentatives = tentatives + 1 WHERE id = $1',
         [otp.id]
       );
       const restantes = 3 - (otp.tentatives + 1);
-      throw new UnauthorizedException(`Code incorrect — ${restantes} tentative(s) restante(s)`);
+      throw new UnauthorizedException(`Code incorrect â€” ${restantes} tentative(s) restante(s)`);
     }
 
-    // OTP valide — supprimer
+    // OTP valide â€” supprimer
     await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
 
-    // Récupérer ou créer l'utilisateur
+    // RÃ©cupÃ©rer ou crÃ©er l'utilisateur
     const user = await this.obtenirOuCreerUtilisateur(telephone, country_code);
 
     return this.genererTokens(user);
   }
 
-  // ── 3. Refresh token ──────────────────────────────────────
+  // â”€â”€ 3. Refresh token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async refreshTokens(refresh_token: string): Promise<TokenPair> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refresh_token, {
@@ -134,7 +134,7 @@ export class AuthService implements OnModuleInit {
     }
   }
 
-  // ── Helpers ────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   private async obtenirOuCreerUtilisateur(telephone: string, country_code: string): Promise<any> {
     // Chercher l'utilisateur existant
     const res = await this.pool.query(
@@ -144,7 +144,7 @@ export class AuthService implements OnModuleInit {
 
     if (res.rows.length > 0) return res.rows[0];
 
-    // Créer un nouvel utilisateur
+    // CrÃ©er un nouvel utilisateur
     const id = `user_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
     await this.pool.query(
       `INSERT INTO yira_utilisateur (id, telephone, country_code, role, niveau_acces, actif, updated_at)
@@ -152,7 +152,7 @@ export class AuthService implements OnModuleInit {
       [id, telephone, country_code]
     );
 
-    this.logger.log(`Nouvel utilisateur créé: ${telephone} [${country_code}]`);
+    this.logger.log(`Nouvel utilisateur crÃ©Ã©: ${telephone} [${country_code}]`);
     return { id, telephone, country_code, role: 'BENEFICIAIRE', niveau_acces: 'FREE' };
   }
 

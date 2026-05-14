@@ -1,59 +1,86 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../../node_modules/@prisma/client-sync"
+  output   = "../../node_modules/.prisma/client-sync"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_SYNC_URL")
+  url      = env("DATABASE_URL_SYNC")
 }
 
 model YiraUtilisateur {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
+  tenant_id      String    @default("CI") @db.VarChar(10)
   telephone      String?
-  email          String?  @unique
-  hashedPassword String?  @default("")
+  email          String?   @unique
+  hashedPassword String?   @default("")
   nom            String?
   prenom         String?
-  role           String   @default("BENEFICIAIRE")
-  country_code   String   @default("CI")
-  niveau_acces   String   @default("FREE")
-  actif          Boolean  @default(true)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-
+  role           String    @default("BENEFICIAIRE")
+  country_code   String    @default("CI")
+  niveau_acces   String    @default("FREE")
+  actif          Boolean   @default(true)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
   @@unique([telephone, country_code])
   @@map("yira_utilisateur")
 }
 
 model YiraOtpTemp {
   id           String   @id @default(cuid())
+  tenant_id    String   @default("CI") @db.VarChar(10)
   telephone    String
   country_code String   @default("CI")
   code         String
+  code_hash    String?
   expires_at   DateTime
   tentatives   Int      @default(0)
   created_at   DateTime @default(now())
-
   @@unique([telephone, country_code])
   @@map("yira_otp_temp")
 }
 
+model YiraSession {
+  id          String    @id @default(uuid())
+  tenant_id   String    @default("CI") @db.VarChar(10)
+  user_id     String
+  jwt_jti     String    @unique
+  device_info Json?
+  ip_address  String?   @db.VarChar(45)
+  expires_at  DateTime
+  revoked_at  DateTime?
+  created_at  DateTime  @default(now())
+  @@index([user_id])
+  @@map("yira_session")
+}
+
+model YiraTransaction {
+  id            String    @id @default(cuid())
+  tenant_id     String    @default("CI") @db.VarChar(10)
+  telephone     String
+  country_code  String    @default("CI")
+  montant       Int
+  niveau_achete String
+  operateur     String
+  statut        String    @default("EN_ATTENTE")
+  reference_ext String?
+  created_at    DateTime  @default(now())
+  confirmed_at  DateTime?
+  @@index([telephone, country_code])
+  @@map("yira_transaction")
+}
+
 model YiraConfigPays {
   id                String   @id @default(cuid())
+  tenant_id         String   @default("CI") @db.VarChar(10)
   country_code      String   @unique
   nom               String
   code_ussd         String   @default("*7572#")
   langue_principale String   @default("fr")
   actif             Boolean  @default(true)
-  ussd_timeout_ms   Int      @default(8000)
   freemium_actif    Boolean  @default(false)
-  free_inclut       String[] @default(["PROFIL_RIASEC","CODE_HOLLAND","TOP3_METIERS"])
-  basic_inclut      String[] @default(["PROFIL_RIASEC","CODE_HOLLAND","TOP3_METIERS","SALAIRES","PII_J30"])
-  premium_inclut    String[] @default(["TOUT"])
   prix_basic        Int      @default(500)
   prix_premium      Int      @default(2000)
-
   @@map("yira_config_pays")
 }
 
@@ -68,7 +95,6 @@ model YiraIAConfig {
   temperature      Float   @default(0.7)
   max_tokens       Int     @default(2000)
   actif            Boolean @default(true)
-
   @@unique([module, usage, pays])
   @@map("yira_ia_config")
 }
@@ -84,7 +110,6 @@ model YiraIaLog {
   success      Boolean
   error        String?
   created_at   DateTime @default(now())
-
   @@map("yira_ia_log")
 }
 
@@ -97,22 +122,44 @@ model YiraAuditLog {
   details     Json?
   pays        String   @default("CI")
   created_at  DateTime @default(now())
-
   @@map("yira_audit_log")
 }
 
-model YiraTransaction {
-  id            String   @id @default(cuid())
-  telephone     String
-  country_code  String   @default("CI")
-  montant       Int
-  niveau_achete String
-  operateur     String
-  statut        String   @default("EN_ATTENTE")
-  reference_ext String?
-  created_at    DateTime @default(now())
-  confirmed_at  DateTime?
+model YiraSouscriptionVas {
+  id           String    @id @default(uuid())
+  tenant_id    String    @default("CI") @db.VarChar(10)
+  user_id      String
+  service_code String    @db.VarChar(50)
+  statut       String    @default("ACTIF")
+  opt_in_at    DateTime  @default(now())
+  opt_out_at   DateTime?
+  created_at   DateTime  @default(now())
+  @@index([user_id, service_code])
+  @@map("yira_souscription_vas")
+}
 
-  @@index([telephone, country_code])
-  @@map("yira_transaction")
+model YiraNotification {
+  id         String    @id @default(uuid())
+  tenant_id  String    @default("CI") @db.VarChar(10)
+  user_id    String
+  canal      String    @default("SMS")
+  contenu    String
+  statut     String    @default("EN_ATTENTE")
+  sent_at    DateTime?
+  created_at DateTime  @default(now())
+  @@index([user_id])
+  @@map("yira_notification")
+}
+
+model YiraWebhookQueue {
+  id           String    @id @default(uuid())
+  tenant_id    String    @default("CI") @db.VarChar(10)
+  source       String
+  event_type   String
+  payload      Json
+  statut       String    @default("EN_ATTENTE")
+  retry_count  Int       @default(0)
+  processed_at DateTime?
+  created_at   DateTime  @default(now())
+  @@map("yira_webhook_queue")
 }

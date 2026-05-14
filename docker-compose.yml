@@ -1,14 +1,23 @@
-# ============================================================
-# YIRA Africa — docker-compose.yml
-# 5 bases PostgreSQL isolées + Redis + API NestJS
-# Windows : lancer depuis PowerShell dans C:\dev\yira-api
-# ============================================================
-
-version: '3.9'
-
 services:
 
-  # ── base_sync (Auth, Config, IAConfig, Paiements, Audit) ──
+  db_core:
+    image: postgres:16-alpine
+    container_name: yira_db_core
+    environment:
+      POSTGRES_USER: yira_core
+      POSTGRES_PASSWORD: yira_core_2026_gov
+      POSTGRES_DB: yira_core
+    ports:
+      - '5431:5432'
+    volumes:
+      - db_core_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira_core -d yira_core']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   db_sync:
     image: postgres:16-alpine
     container_name: yira_db_sync
@@ -27,7 +36,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── base_orientation (Psychométrie AES-256, Profils, Trust Index) ──
   db_orientation:
     image: postgres:16-alpine
     container_name: yira_db_orientation
@@ -46,7 +54,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── base_game (Quiz VAS, Gamification, XP) ──
   db_game:
     image: postgres:16-alpine
     container_name: yira_db_game
@@ -65,7 +72,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── base_etude (Études socio-éco, ODD) ──
   db_etude:
     image: postgres:16-alpine
     container_name: yira_db_etude
@@ -84,8 +90,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── base_sos (Données vulnérables — AES-256 double couche) ──
-  # RÈGLE : SOS_ADMIN UNIQUEMENT — accès restreint
   db_sos:
     image: postgres:16-alpine
     container_name: yira_db_sos
@@ -104,7 +108,24 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Redis (Cache + Bull Queue) ──
+  db_cqci:
+    image: postgres:16-alpine
+    container_name: yira_db_cqci
+    environment:
+      POSTGRES_USER: yira_cqci
+      POSTGRES_PASSWORD: yira_cqci_2026_sci
+      POSTGRES_DB: yira_cqci
+    ports:
+      - '5437:5432'
+    volumes:
+      - db_cqci_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira_cqci -d yira_cqci']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: yira_redis
@@ -112,7 +133,7 @@ services:
       - '6379:6379'
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
@@ -121,9 +142,11 @@ services:
       retries: 5
 
 volumes:
+  db_core_data:
   db_sync_data:
   db_orientation_data:
   db_game_data:
   db_etude_data:
   db_sos_data:
+  db_cqci_data:
   redis_data:

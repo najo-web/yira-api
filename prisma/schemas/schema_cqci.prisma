@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client-cqci"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_CQCI")
+}
+
+model YiraCqciNorms {
+  id             String    @id @default(uuid())
+  instrument     String
+  item_code      String
+  libelle        String
+  dimension      String
+  poids          Decimal   @default(1.0)
+  version        Int       @default(1)
+  valide_par     String?
+  valide_at      DateTime?
+  signature_hash String?
+  actif          Boolean   @default(true)
+  created_at     DateTime  @default(now())
+  @@unique([instrument, item_code, version])
+  @@map("yira_cqci_norms")
+}
+
+model YiraRiasecNormsCi {
+  id            String   @id @default(uuid())
+  axe           String
+  tranche_age   String
+  genre         String   @default("MIXTE")
+  milieu        String   @default("MIXTE")
+  moyenne       Decimal
+  ecart_type    Decimal
+  n_echantillon Int
+  version       Int      @default(1)
+  created_at    DateTime @default(now())
+  @@unique([axe, tranche_age, genre, milieu, version])
+  @@map("yira_riasec_norms_ci")
+}
+
+model YiraBigFiveNormsCi {
+  id            String   @id @default(uuid())
+  dimension     String
+  tranche_age   String
+  genre         String   @default("MIXTE")
+  milieu        String   @default("MIXTE")
+  moyenne       Decimal
+  ecart_type    Decimal
+  n_echantillon Int
+  version       Int      @default(1)
+  created_at    DateTime @default(now())
+  @@unique([dimension, tranche_age, genre, milieu, version])
+  @@map("yira_big_five_norms_ci")
+}
+
+model YiraSampleValidation {
+  id             String   @id @default(uuid())
+  instrument     String
+  cohorte_code   String   @unique
+  n_participants Int
+  description    String?
+  institution    String   @default("UFHB")
+  annee          Int
+  statut         String   @default("VALIDE")
+  created_at     DateTime @default(now())
+  @@map("yira_sample_validation")
+}
+
+model YiraCronbachAlpha {
+  id             String   @id @default(uuid())
+  instrument     String
+  dimension      String?
+  alpha          Decimal
+  n_items        Int
+  n_participants Int
+  version        Int      @default(1)
+  valide_par     String?
+  created_at     DateTime @default(now())
+  @@unique([instrument, dimension, version])
+  @@map("yira_cronbach_alpha")
+}

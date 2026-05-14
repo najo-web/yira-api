@@ -12,6 +12,7 @@ export interface IaInput {
   pays:      string;
   variables: Record<string, any>;
   canal:     'USSD' | 'SMS' | 'APP' | 'WEB';
+  customPrompt?: string;  // Allow custom prompt override
 }
 
 export interface IaResult {
@@ -43,7 +44,7 @@ export class IaService {
 
   async generate(input: IaInput): Promise<IaResult> {
     const start  = Date.now();
-    const prompt = this.assemblerPrompt(input);
+    const prompt = input.customPrompt || this.assemblerPrompt(input);
     const modele = this.choisirModele(input);
 
     if (modele === 'gemini') {

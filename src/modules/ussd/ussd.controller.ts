@@ -1,6 +1,6 @@
 // ============================================================
-// YIRA — src/modules/ussd/ussd.controller.ts
-// LAfricaMobile envoie les requêtes USSD ici
+// YIRA â€” src/modules/ussd/ussd.controller.ts
+// LAfricaMobile envoie les requÃªtes USSD ici
 // Format : POST avec body form-urlencoded ou JSON
 // ============================================================
 import { Controller, Post, Get, Body, Query } from '@nestjs/common';
@@ -11,8 +11,8 @@ import { Public }      from '../../auth/decorators';
 export class UssdController {
   constructor(private ussdService: UssdService) {}
 
-  // POST /api/ussd — endpoint principal LAfricaMobile
-  // Pas de JWT — LAfricaMobile n'envoie pas de token
+  // POST /api/ussd â€” endpoint principal LAfricaMobile
+  // Pas de JWT â€” LAfricaMobile n'envoie pas de token
   @Post()
   @Public()
   async traiter(
@@ -27,11 +27,11 @@ export class UssdController {
       serviceCode: serviceCode ?? '*7572#',
       text:        text ?? '',
     });
-    // LAfricaMobile attend une réponse texte plain
+    // LAfricaMobile attend une rÃ©ponse texte plain
     return reponse;
   }
 
-  // GET /api/ussd/simuler — simulateur USSD pour tests
+  // GET /api/ussd/simuler â€” simulateur USSD pour tests
   // Utiliser dans le navigateur ou Postman
   @Get('simuler')
   @Public()
@@ -59,6 +59,6 @@ export class UssdController {
   @Get('ping')
   @Public()
   ping() {
-    return { module: 'YIRA-USSD', status: '✅ opérationnel', shortcode: '*7572#' };
+    return { module: 'YIRA-USSD', status: 'âœ… opÃ©rationnel', shortcode: '*7572#' };
   }
 }

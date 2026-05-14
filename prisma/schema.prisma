@@ -1,25 +1,562 @@
-// ============================================================
-// YIRA — prisma/schema.prisma
-// Schema minimal pour démarrer — base_sync uniquement
-// On ajoutera les autres modèles sprint par sprint
-// ============================================================
+// =============================================================================
+// YIRA V3.0 — base_core — Governance Core
+// Najo Technologies — CONFIDENTIEL
+// Ingénieur Principal : IA Product Builder
+// Référentiel : L3 §3.1 — Mai 2026
+// =============================================================================
+// RÈGLE ABSOLUE : Cette base est INTOUCHABLE par les modules métier.
+// Écriture exclusive depuis YIRA-COMMAND (rôle yira_command_writer).
+// Lecture seule via le rôle yira_app_reader (RLS enforced).
+// =============================================================================
+
+// NOTE Prisma v7+ : la connexion est configurée dans prisma.config.ts
+// La propriété url dans datasource est obsolète depuis Prisma 7 (voir prisma.config.ts).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/client-core"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_SYNC_URL")
+  url      = env("DATABASE_URL_CORE")
+  schemas  = ["core"]
 }
 
-// Modèle minimal pour générer le client Prisma
-// Les vrais modèles arrivent au Sprint 2
-model YiraConfigPays {
-  id           String  @id @default(cuid())
-  country_code String  @unique
-  nom          String
-  actif        Boolean @default(true)
+// =============================================================================
+// ENUMS — Tous les statuts sont typés. Zéro string magique dans le code.
+// =============================================================================
 
-  @@map("yira_config_pays")
+/// Statut standard pour toutes les entités supportant le soft delete.
+/// ARCHIVED = désactivé mais conservé pour audit historique.
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@schema("core")
+}
+
+/// Rôles des opérateurs YIRA-COMMAND.
+/// Principe du moindre privilège (ISO 27001 §A.9).
+enum CommandOperatorRole {
+  SUPER_ADMIN    // Accès total + bypass RLS (tracé)
+  TENANT_ADMIN   // Accès limité à son tenant
+  AI_EDITOR      // Accès AI Studio uniquement (ia_prompts)
+  CONFIG_EDITOR  // Accès Config Center uniquement
+  AUDITOR        // Lecture seule audit_global
+
+  @@schema("core")
+}
+
+/// Groupes des 37 services VAS — L2 §5.
+enum VasGroup {
+  GROUP_A_PAYANT       // 9 services payants (50-75 FCFA/j)
+  GROUP_B_FREEMIUM     // 4 services freemium
+  GROUP_C_GRATUIT      // 12 services gratuits financés
+  GROUP_D_SANTE        // 10 services santé & citoyenneté
+  GROUP_E_VOD          // VOD éducatif
+  GROUP_F_SOS          // SOS urgence sociale
+
+  @@schema("core")
+}
+
+/// Catégories de Provider pour la matrice de switching (L3 §5).
+enum ProviderCategory {
+  TELECOM_PROVIDER
+  PAYMENT_PROVIDER
+  AI_PROVIDER
+  IDENTITY_PROVIDER
+  CLOUD_PROVIDER
+  CDN_PROVIDER
+  CONTENT_SOURCE_PROVIDER
+  PSYCHOMETRIC_PROVIDER
+
+  @@schema("core")
+}
+
+/// Type de référentiel — permet au service de filtrer sans JSONB lookup.
+enum ReferentialType {
+  CONCOURS          // Concours de la fonction publique
+  FILIERE           // Filières académiques (Seconde A/C/D, etc.)
+  METIER            // Référentiel métiers O*NET adapté CI
+  DIPLOME           // Diplômes et équivalences
+  REGION            // Régions administratives CEDEAO
+  PARTENAIRE_TYPE   // Types de partenaires (école, ONG, entreprise…)
+  LANGUE            // Langues locales supportées
+  ODD               // Objectifs de Développement Durable (ONU)
+  PND               // Indicateurs Plan National de Développement CI
+
+  @@schema("core")
+}
+
+/// Module YIRA ciblé par un prompt IA.
+enum YiraModule {
+  YIRA_OS           // Orientation & Scoring
+  YIRA_OP           // Offres & Placement
+  YIRA_QUIZ         // Services VAS USSD
+  YIRA_GAMER        // Gamification
+  YIRA_SOS          // Protection sociale
+  YIRA_CONCOURS     // Préparation concours
+  YIRA_RESCUE       // Coaching remédiation
+  YIRA_EVAL         // Évaluation scolaire
+  YIRA_COMMAND      // Dashboard administration
+
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 1 — country_config
+// Référentiel multi-tenant. Une ligne = un pays/partenaire CEDEAO.
+// tenant_id est le code ISO 3166-1 alpha-2 (ex: 'CI', 'SN', 'BF').
+// =============================================================================
+
+/// Configuration complète d'un tenant pays.
+/// Contient tous les paramètres variables par pays : codes USSD, devises,
+/// tarifs VAS, numéros SMS, providers télécom. Zéro hardcode dans le code
+/// applicatif — tout est lu depuis cette table via CoreConfigService (N2).
+model CountryConfig {
+  id                  String   @id @default(uuid()) @db.Uuid
+
+  /// Code ISO 3166-1 alpha-2. Utilisé comme clé RLS (app.current_tenant).
+  /// Exemples : 'CI', 'SN', 'BF', 'ML', 'GH'.
+  tenantId            String   @unique @map("tenant_id") @db.VarChar(10)
+
+  /// Nom officiel du pays en français.
+  countryName         String   @map("country_name") @db.VarChar(100)
+
+  /// Code USSD court attribué par l'opérateur national (ex: *555#).
+  /// Stocké ici, JAMAIS dans le code applicatif.
+  ussdShortCode       String   @map("ussd_short_code") @db.VarChar(20)
+
+  /// Code devise ISO 4217 (ex: 'XOF', 'GHS').
+  currencyCode        String   @map("currency_code") @db.VarChar(3)
+
+  /// Nombre de décimales de la devise (0 pour XOF, 2 pour GHS).
+  currencyMinorUnits  Int      @default(0) @map("currency_minor_units")
+
+  /// Tarifs VAS par groupe et par service.
+  /// Structure : { "GROUP_A": { "default": 50, "service_code": 75 }, ... }
+  vasPricing          Json     @map("vas_pricing") @db.JsonB
+
+  /// Configuration des providers Mobile Money actifs dans ce pays.
+  /// Structure : [{ "name": "Orange Money", "code": "OM", "active": true }]
+  mobileMoneyProviders Json    @map("mobile_money_providers") @db.JsonB
+
+  /// Identifiants expéditeur SMS par usage (OTP, VAS, alertes SOS).
+  /// Structure : { "otp": "YIRA-CI", "vas": "YIRAVAS", "sos": "YIRA-SOS" }
+  smsSenderIds        Json     @map("sms_sender_ids") @db.JsonB
+
+  /// Providers télécom actifs et leurs configs de failover.
+  /// Structure : { "primary": "TP_A", "fallback": "TP_B", "timeout_ms": 5000 }
+  telecomProviders    Json     @map("telecom_providers") @db.JsonB
+
+  status              EntityStatus @default(ACTIVE)
+
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+
+  // Relations
+  iaPrompts           IaPrompt[]
+  configServices      YiraConfigService[]
+  referentials        Referential[]
+  scoringFormulas     ScoringFormula[]
+
+  @@map("country_config")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 2 — ia_prompts
+// Tous les prompts IA versionnés. Zéro prompt dans le code (L3 §7.2).
+// Modifiable uniquement depuis AI Studio (YIRA-COMMAND).
+// =============================================================================
+
+/// Prompt IA versionné pour un agent et un module YIRA.
+/// Chaque prompt est immuable une fois publié : une modification crée
+/// une nouvelle version (version++), l'ancienne reste archivée pour
+/// reproductibilité scientifique (L3 §6.3).
+model IaPrompt {
+  id                String       @id @default(uuid()) @db.Uuid
+
+  /// Tenant propriétaire. Un prompt CI ne s'applique pas au SN.
+  tenantId          String       @map("tenant_id") @db.VarChar(10)
+
+  /// Clé métier unique par tenant. Ex: 'ORIENTATION_LEAD_V1'.
+  /// Le code applicatif utilise uniquement cette clé, jamais l'UUID.
+  promptKey         String       @map("prompt_key") @db.VarChar(100)
+
+  /// Module YIRA ciblé par ce prompt.
+  moduleTarget      YiraModule   @map("module_target")
+
+  /// Nom de l'agent IA éditorial (L3 §7.1). Ex: 'ZOUGLOU_AGENT'.
+  agentName         String       @map("agent_name") @db.VarChar(100)
+
+  /// Prompt système (rôle, cadre culturel, contraintes linguistiques).
+  /// Contient le préambule "Vieux Père" et les références culturelles CI.
+  promptSystem      String       @map("prompt_system") @db.Text
+
+  /// Template du prompt utilisateur. Utilise des placeholders : {{nom}}, {{score}}.
+  promptUserTemplate String      @map("prompt_user_template") @db.Text
+
+  /// Garde-fous CQ-CI : sujets interdits, redirections, contraintes de format.
+  /// Structure : { "forbidden_topics": [...], "max_chars": 160, "redirects": {...} }
+  guardrails        Json         @map("guardrails") @db.JsonB
+
+  /// Filtres spécifiques au contexte ivoirien (service bloqueur CQ-CI, L3 §3.7).
+  /// Structure : { "cultural_refs_allowed": [...], "dialect_level": "standard" }
+  cqciFilters       Json         @map("cqci_filters") @db.JsonB
+
+  /// Version entière. Commence à 1. Incrémentée à chaque modification.
+  version           Int          @default(1)
+
+  status            EntityStatus @default(ACTIVE)
+
+  /// Opérateur COMMAND ayant créé cette version.
+  createdById       String       @map("created_by") @db.Uuid
+
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  deletedAt         DateTime?    @map("deleted_at")
+
+  // Relations
+  tenant            CountryConfig    @relation(fields: [tenantId], references: [tenantId])
+  createdBy         CommandOperator  @relation(fields: [createdById], references: [id])
+
+  @@unique([tenantId, promptKey, version])
+  @@map("ia_prompts")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 3 — yira_config_service
+// "Plan de vol" des 37 services VAS. Référentiel immuable au niveau applicatif.
+// Les données opérationnelles (scores, sessions) vivent dans base_game.
+// =============================================================================
+
+/// Configuration d'un service VAS USSD/SMS.
+/// Contient le référentiel (code, tarif, template SMS, métadonnées ARTCI).
+/// La table base_game.yira_game_questions pointe vers service_code
+/// via le service applicatif — jamais par jointure SQL directe.
+model YiraConfigService {
+  id                    String       @id @default(uuid()) @db.Uuid
+
+  /// Tenant propriétaire du service.
+  tenantId              String       @map("tenant_id") @db.VarChar(10)
+
+  /// Code métier unique du service. Ex: 'ZOUGLOU', 'SANTE', 'ORIENTATION'.
+  /// Utilisé comme clé de référence cross-base via les services N2.
+  serviceCode           String       @unique @map("service_code") @db.VarChar(50)
+
+  /// Nom affiché dans les menus USSD et les rapports ARTCI.
+  serviceName           String       @map("service_name") @db.VarChar(150)
+
+  /// Chemin USSD relatif au short code. Ex: '*1#' pour ZOUGLOU (*xyz*1#).
+  ussdPath              String       @map("ussd_path") @db.VarChar(30)
+
+  /// Groupe VAS selon la classification L2 §5.
+  vasGroup              VasGroup     @map("vas_group")
+
+  /// Tarification par tenant (override du tarif par défaut).
+  /// Structure : { "CI": 50, "SN": 75, "default": 50 } (valeurs en unité monétaire locale)
+  pricingByTenant       Json         @map("pricing_by_tenant") @db.JsonB
+
+  /// Templates SMS par type d'événement (inscription, contenu quotidien, STOP).
+  /// Structure : { "welcome": "...", "daily": "{{content}}", "stop_confirm": "..." }
+  /// Zéro texte SMS dans le code applicatif — tout ici.
+  smsTemplates          Json         @map("sms_templates") @db.JsonB
+
+  /// Métadonnées obligatoires ARTCI (L2 §5, L3 §4.2).
+  /// Structure : { "service_id_artci": "57/SVA/3/24", "category": "divertissement",
+  ///               "double_optin": true, "stop_delay_seconds": 5 }
+  artciMetadata         Json         @map("artci_metadata") @db.JsonB
+
+  /// Double opt-in obligatoire avant facturation (exigence ARTCI).
+  doubleOptinRequired   Boolean      @default(true) @map("double_optin_required")
+
+  /// Service en mode freemium (accès gratuit partiel).
+  isFreemium            Boolean      @default(false) @map("is_freemium")
+
+  status                EntityStatus @default(ACTIVE)
+
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  deletedAt             DateTime?    @map("deleted_at")
+
+  // Relations
+  tenant                CountryConfig @relation(fields: [tenantId], references: [tenantId])
+
+  @@map("yira_config_service")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 4 — referentials
+// Arbre de référentiels métier : concours, filières, métiers, diplômes…
+// Table self-référençante pour modéliser les hiérarchies sans tables séparées.
+// =============================================================================
+
+/// Référentiel métier hiérarchique.
+/// Un seul modèle couvre : concours → épreuves, filières → spécialités,
+/// métiers → familles de métiers, ODD → cibles, PND → axes.
+/// Le champ metadata JSONB absorbe les attributs spécifiques à chaque type.
+model Referential {
+  id              String          @id @default(uuid()) @db.Uuid
+
+  /// Tenant propriétaire. Les concours CI ne sont pas visibles depuis SN.
+  tenantId        String          @map("tenant_id") @db.VarChar(10)
+
+  /// Type de référentiel — permet au service de filtrer sans JSONB lookup.
+  refType         ReferentialType @map("ref_type")
+
+  /// Code métier unique par tenant et par type. Ex: 'BEPC_CI_2026', 'SEC_A'.
+  refCode         String          @map("ref_code") @db.VarChar(100)
+
+  /// Libellé en français (langue officielle CEDEAO).
+  labelFr         String          @map("label_fr") @db.VarChar(255)
+
+  /// Libellé en langue locale si applicable (Dioula, Baoulé…).
+  labelLocal      String?         @map("label_local") @db.VarChar(255)
+
+  /// Attributs variables selon le type de référentiel.
+  /// Concours : { "age_min": 18, "age_max": 35, "diplome_requis": "BAC", "places": 500 }
+  /// Filière : { "coefficient_maths": 4, "coefficient_fr": 3, "debouches": [...] }
+  /// Métier : { "code_onet": "15-1252.00", "secteur": "numérique", "salaire_median_fcfa": 350000 }
+  metadata        Json            @db.JsonB
+
+  /// Ordre d'affichage dans les menus USSD et les interfaces.
+  sortOrder       Int             @default(0) @map("sort_order")
+
+  /// Référence vers le parent (self-join). NULL = nœud racine.
+  parentId        String?         @map("parent_id") @db.Uuid
+
+  status          EntityStatus    @default(ACTIVE)
+
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  deletedAt       DateTime?       @map("deleted_at")
+
+  // Self-join pour la hiérarchie
+  parent          Referential?    @relation("ReferentialHierarchy", fields: [parentId], references: [id])
+  children        Referential[]   @relation("ReferentialHierarchy")
+
+  // Relation tenant
+  tenant          CountryConfig   @relation(fields: [tenantId], references: [tenantId])
+
+  @@unique([tenantId, refType, refCode])
+  @@map("referentials")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 5 — scoring_formulas
+// Formules de scoring versionnées (RIASEC, Trust Index, SCG, DOB).
+// Toute modification crée une nouvelle version sans supprimer l'ancienne
+// (reproductibilité scientifique — L3 §6.3).
+// =============================================================================
+
+/// Formule de scoring versionnée pour un moteur d'orientation.
+/// Les pondérations Trust Index = 0.4 × cohérence_interne + 0.4 × inter-sources
+/// + 0.2 × comportementale sont stockées dans coefficients.
+/// JAMAIS en dur dans le code applicatif.
+model ScoringFormula {
+  id                String       @id @default(uuid()) @db.Uuid
+
+  /// Tenant propriétaire. Les pondérations peuvent varier selon les normes culturelles.
+  tenantId          String       @map("tenant_id") @db.VarChar(10)
+
+  /// Clé métier unique. Ex: 'TRUST_INDEX', 'SCG', 'RIASEC_AXE', 'DOB_BEPC_CI'.
+  formulaKey        String       @map("formula_key") @db.VarChar(100)
+
+  /// Moteur cible (L3 §6.1 Factory Pattern).
+  /// Ex: 'BepcEngine', 'BacEngine', 'QuizEngine', 'ConcoursEngine'.
+  engineTarget      String       @map("engine_target") @db.VarChar(100)
+
+  /// Coefficients de pondération par dimension.
+  /// Trust Index : { "coherence_interne": 0.4, "inter_sources": 0.4, "comportementale": 0.2 }
+  /// SCG : { "riasec": 0.15, "big_five": 0.15, "inter_sources": 0.25, "scolaire": 0.15,
+  ///          "comportementale": 0.15, "culturelle_cqci": 0.15 }
+  coefficients      Json         @map("coefficients") @db.JsonB
+
+  /// Seuils décisionnels associés à cette formule.
+  /// { "hautement_fiable": 0.80, "fiable": 0.60, "incoherent": 0.40, "fraude": 0.0 }
+  thresholds        Json         @db.JsonB
+
+  /// Expression de la formule en notation lisible (pour audit et documentation).
+  /// Ex: 'score = (sum(reponses_axe) / max_theorique) * 100'
+  formulaExpression String       @map("formula_expression") @db.Text
+
+  /// Version entière. Une modification → version++, l'ancienne reste ARCHIVED.
+  version           Int          @default(1)
+
+  status            EntityStatus @default(ACTIVE)
+
+  /// Opérateur COMMAND ayant publié cette version.
+  createdById       String       @map("created_by") @db.Uuid
+
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  deletedAt         DateTime?    @map("deleted_at")
+
+  // Relations
+  tenant            CountryConfig   @relation(fields: [tenantId], references: [tenantId])
+  createdBy         CommandOperator @relation(fields: [createdById], references: [id])
+
+  @@unique([tenantId, formulaKey, version])
+  @@map("scoring_formulas")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 6 — vendor_alternatives
+// Matrice de Provider Switching (L3 §5). Indépendance fournisseur garantie.
+// Pas de tenant_id : s'applique globalement à toute la plateforme.
+// =============================================================================
+
+/// Alternative qualifiée pour chaque catégorie de Provider.
+/// Pour chaque catégorie, un Provider primaire et un fallback sont documentés
+/// avec le coût de migration estimé et le runbook de bascule.
+/// Pas de dépendance commerciale exclusive (L3 §Synthèse).
+model VendorAlternative {
+  id                      String           @id @default(uuid()) @db.Uuid
+
+  /// Catégorie de Provider (Telecom, Payment, AI, Identity…).
+  providerCategory        ProviderCategory @map("provider_category")
+
+  /// Rôle spécifique dans la catégorie. Ex: 'USSD_GATEWAY', 'MOBILE_MONEY_CI'.
+  providerRole            String           @map("provider_role") @db.VarChar(100)
+
+  /// Alias du Provider primaire (nom réel en Annexe A1 confidentielle).
+  primaryVendor           String           @map("primary_vendor") @db.VarChar(100)
+
+  /// Alias du Provider de fallback.
+  fallbackVendor          String           @map("fallback_vendor") @db.VarChar(100)
+
+  /// Délai de bascule automatique en millisecondes (L3 §4.2 : 5000ms pour Telecom).
+  failoverTimeoutMs       Int              @default(5000) @map("failover_timeout_ms")
+
+  /// Bascule automatique activée (sinon : manuelle avec approbation COPIL).
+  autoFailoverEnabled     Boolean          @default(false) @map("auto_failover_enabled")
+
+  /// Estimation du coût de migration (J/H équipe, coût infra, durée).
+  /// Structure : { "engineering_days": 5, "infra_cost_usd": 200, "downtime_minutes": 30 }
+  switchingCostEstimate   Json             @map("switching_cost_estimate") @db.JsonB
+
+  /// Procédure de migration documentée étape par étape.
+  /// Structure : { "steps": ["1. Configurer...", "2. Tester..."], "validation_checklist": [...] }
+  migrationRunbook        Json             @map("migration_runbook") @db.JsonB
+
+  /// Date du dernier test de failover (test annuel obligatoire — L3 §5.5).
+  lastTestedAt            DateTime?        @map("last_tested_at")
+
+  createdAt               DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
+  deletedAt               DateTime?        @map("deleted_at")
+
+  @@unique([providerCategory, providerRole])
+  @@map("vendor_alternatives")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 7 — audit_global
+// Journal d'audit IMMUABLE. INSERT only. UPDATE/DELETE interdits via trigger.
+// Conformité ISO 27001 §A.12 + Loi CI 2013-450.
+// Pas de deletedAt : un log d'audit ne se supprime JAMAIS.
+// =============================================================================
+
+/// Entrée immuable du journal d'audit global.
+/// Toute écriture dans base_core (ia_prompts, scoring_formulas, etc.)
+/// génère automatiquement une entrée via le trigger fn_audit_insert.
+/// Pas de updatedAt ni deletedAt — l'immuabilité est garantie par
+/// la règle PostgreSQL NO UPDATE et le trigger de protection.
+model AuditGlobal {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  /// Tenant concerné par l'action (peut être NULL pour les actions globales).
+  tenantId        String?  @map("tenant_id") @db.VarChar(10)
+
+  /// UUID de l'opérateur COMMAND ayant effectué l'action.
+  actorId         String   @map("actor_id") @db.Uuid
+
+  /// Rôle de l'acteur au moment de l'action (snapshot — le rôle peut changer).
+  actorRole       String   @map("actor_role") @db.VarChar(50)
+
+  /// Type d'action : 'INSERT', 'UPDATE', 'DELETE', 'BYPASS_RLS', 'LOGIN', 'EXPORT'.
+  actionType      String   @map("action_type") @db.VarChar(50)
+
+  /// Table ou entité concernée. Ex: 'ia_prompts', 'scoring_formulas'.
+  entityType      String   @map("entity_type") @db.VarChar(100)
+
+  /// UUID de l'enregistrement affecté.
+  entityId        String?  @map("entity_id") @db.Uuid
+
+  /// Snapshot de l'état avant modification (NULL pour INSERT).
+  beforeSnapshot  Json?    @map("before_snapshot") @db.JsonB
+
+  /// Snapshot de l'état après modification (NULL pour DELETE).
+  afterSnapshot   Json?    @map("after_snapshot") @db.JsonB
+
+  /// Adresse IP de la connexion YIRA-COMMAND.
+  ipAddress       String?  @map("ip_address") @db.VarChar(45)
+
+  /// User-agent du navigateur (YIRA-COMMAND dashboard).
+  userAgent       String?  @map("user_agent") @db.Text
+
+  /// Horodatage d'insertion. Indexé pour les requêtes d'audit par plage.
+  /// ATTENTION : pas de updatedAt — cette table est INSERT ONLY.
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("audit_global")
+  @@schema("core")
+}
+
+// =============================================================================
+// TABLE 8 — command_operators
+// Identités des opérateurs YIRA-COMMAND. Isolé de base_sync.users.
+// MFA obligatoire pour rôles SUPER_ADMIN et TENANT_ADMIN (L3 §4.1).
+// =============================================================================
+
+/// Opérateur autorisé à écrire dans base_core via YIRA-COMMAND.
+/// Ces identités sont SÉPARÉES des utilisateurs finaux (base_sync.users)
+/// conformément au principe de séparation des responsabilités (ISO 27001 §A.9).
+model CommandOperator {
+  id              String               @id @default(uuid()) @db.Uuid
+
+  /// Email professionnel @najo.tech obligatoire.
+  email           String               @unique @db.VarChar(255)
+
+  /// Mot de passe hashé bcrypt (cost factor 12 — L3 §3.2).
+  hashedPassword  String               @map("hashed_password") @db.Text
+
+  /// Rôle COMMAND — détermine les tables accessibles en écriture.
+  role            CommandOperatorRole
+
+  /// Permissions granulaires par module COMMAND (override du rôle si nécessaire).
+  /// Structure : { "ai_studio": true, "config_center": false, "audit_trail": true }
+  permissions     Json                 @db.JsonB
+
+  /// MFA activé. Obligatoire pour SUPER_ADMIN et TENANT_ADMIN.
+  mfaEnabled      Boolean              @default(false) @map("mfa_enabled")
+
+  /// Secret TOTP chiffré (AES-256-GCM via KMS). NULL si MFA non activé.
+  mfaSecret       String?              @map("mfa_secret") @db.Text
+
+  /// Timestamp de la dernière connexion réussie (surveillance des comptes inactifs).
+  lastLoginAt     DateTime?            @map("last_login_at")
+
+  status          EntityStatus         @default(ACTIVE)
+
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  deletedAt       DateTime?            @map("deleted_at")
+
+  // Relations inverses
+  createdPrompts  IaPrompt[]
+  createdFormulas ScoringFormula[]
+
+  @@map("command_operators")
+  @@schema("core")
 }

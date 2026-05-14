@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client-sos"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_SOS")
+}
+
+model YiraSosSignalement {
+  id                    String    @id @default(uuid())
+  tenant_id             String    @default("CI") @db.VarChar(10)
+  telephone_hash        String
+  type_urgence          String
+  description_chiffree  String
+  localisation_chiffree String?
+  statut                String    @default("NOUVEAU")
+  niveau_risque         String    @default("MOYEN")
+  travailleur_id        String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @default(now())
+  @@index([statut, tenant_id])
+  @@map("yira_sos_signalement")
+}
+
+model YiraSosMineurProtect {
+  id                  String   @id @default(uuid())
+  tenant_id           String   @default("CI") @db.VarChar(10)
+  dossier_hash        String   @unique
+  profil_chiffre      String
+  type_vulnerabilite  String
+  statut_prise_charge String   @default("EN_ATTENTE")
+  travailleur_id      String?
+  structure_accueil   String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @default(now())
+  @@map("yira_sos_mineur_protect")
+}
+
+model YiraSosCasCritique {
+  id                 String   @id @default(uuid())
+  tenant_id          String   @default("CI") @db.VarChar(10)
+  signalement_id     String
+  type_cas           String
+  details_chiffres   String
+  protocole_applique String?
+  issue              String?
+  created_at         DateTime @default(now())
+  @@index([signalement_id])
+  @@map("yira_sos_cas_critique")
+}
+
+model YiraSosAccesLog {
+  id             String   @id @default(uuid())
+  tenant_id      String   @default("CI") @db.VarChar(10)
+  travailleur_id String
+  dossier_id     String
+  action         String
+  ip_address     String?
+  created_at     DateTime @default(now())
+  @@index([travailleur_id, tenant_id])
+  @@map("yira_sos_acces_log")
+}
+
+model YiraSosProtocole {
+  id               String   @id @default(uuid())
+  tenant_id        String   @default("CI") @db.VarChar(10)
+  type_urgence     String   @unique
+  etapes           Json
+  contacts_urgence Json
+  actif            Boolean  @default(true)
+  created_at       DateTime @default(now())
+  @@map("yira_sos_protocole")
+}
