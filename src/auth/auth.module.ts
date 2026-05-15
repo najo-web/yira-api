@@ -1,6 +1,3 @@
-// ============================================================
-// YIRA — src/auth/auth.module.ts  (fix TypeScript strict)
-// ============================================================
 import { Module }         from '@nestjs/common';
 import { JwtModule }      from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -9,6 +6,7 @@ import { AuthService }    from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy }    from './jwt.strategy';
 import { JwtAuthGuard }   from './jwt-auth.guard';
+import { TelecomModule }  from '../modules/telecom/telecom.module';
 
 @Module({
   imports: [
@@ -21,6 +19,7 @@ import { JwtAuthGuard }   from './jwt-auth.guard';
         signOptions: { expiresIn: cfg.get('JWT_EXPIRY', '7d') as any },
       }),
     }),
+    TelecomModule,
   ],
   providers:   [AuthService, JwtStrategy, JwtAuthGuard],
   controllers: [AuthController],

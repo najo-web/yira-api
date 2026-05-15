@@ -1,13 +1,8 @@
-﻿// ============================================================
-// YIRA â€” src/auth/auth.service.ts  (Sprint 9 â€” OTP en BDD)
-// OTP stockÃ© dans YiraOtpTemp (base_sync)
-// Utilisateurs persistants dans YiraUtilisateur
-// ============================================================
-import { Injectable, UnauthorizedException, Logger, OnModuleInit } from '@nestjs/common';
-import { JwtService }    from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import * as bcrypt       from 'bcryptjs';
-import { Pool }          from 'pg';
+﻿import { Injectable, UnauthorizedException, Logger, OnModuleInit } from '@nestjs/common';
+import { JwtService }      from '@nestjs/jwt';
+import { ConfigService }   from '@nestjs/config';
+import { Pool }            from 'pg';
+import { TelecomService }  from '../modules/telecom/telecom.service';
 
 export enum RoleUtilisateur {
   BENEFICIAIRE  = 'BENEFICIAIRE',
@@ -39,8 +34,9 @@ export class AuthService implements OnModuleInit {
   private pool: Pool;
 
   constructor(
-    private jwtService:  JwtService,
-    private config:      ConfigService,
+    private jwtService:     JwtService,
+    private config:         ConfigService,
+    private telecomService: TelecomService,
   ) {}
 
   async onModuleInit() {
@@ -49,75 +45,66 @@ export class AuthService implements OnModuleInit {
     this.logger.log('OK AuthService connecte a base_sync (pg)');
   }
 
-  // â”€â”€ 1. Demander OTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async demanderOTP(telephone: string, country_code: string): Promise<{ message: string }> {
     const code      = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Supprimer l'ancien OTP si existe
     await this.pool.query(
       'DELETE FROM yira_otp_temp WHERE telephone = $1 AND country_code = $2',
       [telephone, country_code]
     );
 
-    // InsÃ©rer le nouvel OTP
     await this.pool.query(
       `INSERT INTO yira_otp_temp (id, telephone, country_code, code, expires_at, tentatives)
        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 0)`,
       [telephone, country_code, code, expiresAt]
     );
 
-    // En dev : afficher dans les logs (en prod â†’ LAfricaMobile SMS)
-    this.logger.log(`OTP pour ${telephone} [${country_code}] : ${code}`);
+    this.logger.log('OTP pour ' + telephone + ' [' + country_code + '] : ' + code);
 
-    return { message: `Code envoyÃ© au ${telephone}. Valable 10 minutes.` };
+    const smsResult = await this.telecomService.sendOtp(telephone, code, country_code);
+    if (!smsResult.success && !smsResult.fallback) {
+      this.logger.error('[AUTH] Echec envoi SMS OTP -> ' + telephone);
+    }
+
+    return { message: 'Code envoye au ' + telephone + '. Valable 10 minutes.' };
   }
 
-  // â”€â”€ 2. VÃ©rifier OTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async verifierOTP(telephone: string, code: string, country_code: string): Promise<TokenPair> {
-    // RÃ©cupÃ©rer l'OTP en BDD
     const res = await this.pool.query(
       'SELECT * FROM yira_otp_temp WHERE telephone = $1 AND country_code = $2',
       [telephone, country_code]
     );
 
     if (res.rows.length === 0)
-      throw new UnauthorizedException('Code expirÃ© â€” demandez un nouveau');
+      throw new UnauthorizedException('Code expire - demandez un nouveau');
 
     const otp = res.rows[0];
 
-    // VÃ©rifier expiration
     if (new Date() > new Date(otp.expires_at)) {
       await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
-      throw new UnauthorizedException('Code expirÃ©');
+      throw new UnauthorizedException('Code expire');
     }
 
-    // VÃ©rifier tentatives
     if (otp.tentatives >= 3) {
       await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
-      throw new UnauthorizedException('Trop de tentatives â€” demandez un nouveau code');
+      throw new UnauthorizedException('Trop de tentatives - demandez un nouveau code');
     }
 
-    // VÃ©rifier le code
     if (otp.code !== code) {
       await this.pool.query(
         'UPDATE yira_otp_temp SET tentatives = tentatives + 1 WHERE id = $1',
         [otp.id]
       );
       const restantes = 3 - (otp.tentatives + 1);
-      throw new UnauthorizedException(`Code incorrect â€” ${restantes} tentative(s) restante(s)`);
+      throw new UnauthorizedException('Code incorrect - ' + restantes + ' tentative(s) restante(s)');
     }
 
-    // OTP valide â€” supprimer
     await this.pool.query('DELETE FROM yira_otp_temp WHERE id = $1', [otp.id]);
-
-    // RÃ©cupÃ©rer ou crÃ©er l'utilisateur
     const user = await this.obtenirOuCreerUtilisateur(telephone, country_code);
-
     return this.genererTokens(user);
   }
 
-  // â”€â”€ 3. Refresh token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async refreshTokens(refresh_token: string): Promise<TokenPair> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refresh_token, {
@@ -134,25 +121,20 @@ export class AuthService implements OnModuleInit {
     }
   }
 
-  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   private async obtenirOuCreerUtilisateur(telephone: string, country_code: string): Promise<any> {
-    // Chercher l'utilisateur existant
     const res = await this.pool.query(
       'SELECT * FROM yira_utilisateur WHERE telephone = $1 AND country_code = $2',
       [telephone, country_code]
     );
-
     if (res.rows.length > 0) return res.rows[0];
 
-    // CrÃ©er un nouvel utilisateur
-    const id = `user_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    const id = 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     await this.pool.query(
       `INSERT INTO yira_utilisateur (id, telephone, country_code, role, niveau_acces, actif, updated_at)
        VALUES ($1, $2, $3, 'BENEFICIAIRE', 'FREE', true, NOW())`,
       [id, telephone, country_code]
     );
-
-    this.logger.log(`Nouvel utilisateur crÃ©Ã©: ${telephone} [${country_code}]`);
+    this.logger.log('Nouvel utilisateur cree: ' + telephone + ' [' + country_code + ']');
     return { id, telephone, country_code, role: 'BENEFICIAIRE', niveau_acces: 'FREE' };
   }
 
