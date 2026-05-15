@@ -63,19 +63,19 @@ export class UssdService {
 
     if (choix.length === 0) { session.etape = 'MENU'; return MENU_PRINCIPAL; }
 
-    // Choix 1 â€” Quiz VAS (router vers base_core)
     if (choix[0] === '1') {
       if (choix.length === 1) {
         return "CON YIRA Quiz VAS\n1. Quiz Zouglou\n2. Quiz Culture\n3. Quiz Sante\n0. Retour";
       }
-      // Router VAS â€” le sous-choix pointe vers un service base_core
-      const vasPath = choix[1];
+      const vasPath  = choix[1];
       const vasResult = await this.vasRouter.router(vasPath, session.telephone, session, choix);
-      if (vasResult.handled) return vasResult.response;
+      if (vasResult.handled) {
+        session = vasResult.session;
+        return vasResult.response;
+      }
       return MENU_PRINCIPAL;
     }
 
-    // Choix 2 â€” Orientation scolaire
     if (choix[0] === '2') {
       if (choix.length === 1) { session.etape = 'MENU_OS'; return MENU_OS; }
 
@@ -106,12 +106,14 @@ export class UssdService {
       return MENU_OS;
     }
 
-    // Choix 3 â€” Orientation pro
-if (choix[0] === '3') return "CON YIRA Orientation Pro\n1. Mon bilan pro\n2. Metiers CI\n0. Retour";
-// Choix 4 — Mon profil
-    if (choix[0] === '4') return 'END Votre profil YIRA\nyira.africa/r/' + session.telephone.slice(-6);
+    if (choix[0] === '3') {
+      return "CON YIRA Orientation Pro\n1. Mon bilan pro\n2. Metiers CI\n0. Retour";
+    }
 
-    // Quitter
+    if (choix[0] === '4') {
+      return 'END Votre profil YIRA\nyira.africa/r/' + session.telephone.slice(-6);
+    }
+
     if (choix[0] === '0') {
       await this.sessionService.delete(sessionId);
       return 'END Merci d utiliser YIRA!\nBonne orientation!';
