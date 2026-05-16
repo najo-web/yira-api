@@ -31,7 +31,7 @@ export interface TokenPair {
 @Injectable()
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
-  private pool: Pool;
+  private pool!: Pool;
 
   constructor(
     private jwtService:     JwtService,
