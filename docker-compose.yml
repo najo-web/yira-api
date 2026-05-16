@@ -127,6 +127,25 @@ services:
       timeout: 5s
       retries: 5
 
+      # ── base_signer (Carnet épargne, Collecteurs, Crédit) ──
+  db_signer:
+    image: postgres:16-alpine
+    container_name: yira_db_signer
+    environment:
+      POSTGRES_USER: yira_signer
+      POSTGRES_PASSWORD: yira_signer_2026_secure
+      POSTGRES_DB: yira_signer
+    ports:
+      - '5439:5432'
+    volumes:
+      - db_signer_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira_signer -d yira_signer']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   db_cqci:
     image: postgres:16-alpine
     container_name: yira_db_cqci
@@ -169,4 +188,5 @@ volumes:
   db_sos_data:
   db_cqci_data:
   db_sara_data:
+  db_signer_data:
   redis_data:

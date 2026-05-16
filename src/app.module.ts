@@ -13,6 +13,7 @@ import { FreemiumModule } from './modules/freemium/freemium.module';
 import { CoreConfigModule } from './core-config/core-config.module';
 import { ModerationModule } from './modules/moderation/moderation.module';
 import { SaraModule } from './modules/sara/sara.module';
+import { SignerModule } from './modules/signer/signer.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SaraModule } from './modules/sara/sara.module';
     QuizModule,
     ModerationModule,
     SaraModule,
+    SignerModule,
   ],
 })
 export class AppModule {}

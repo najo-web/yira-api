@@ -1,0 +1,201 @@
+// =============================================================================
+// YIRA V3.0 — schema_signer.prisma
+// base_signer : Carnet épargne, Collecteurs, Crédit bancaire
+// L3 §3.8 : Données financières FinTech — isolation stricte
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client-signer"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_SIGNER")
+}
+
+// ── Merchant (Client épargne) ─────────────────────────────────────────────────
+model YiraMerchant {
+  id           String    @id @default(cuid())
+  telephone    String    @unique
+  nom          String?
+  prenom       String?
+  country_code String    @default("CI")
+  tenant_id    String?
+  kyc_niveau   Int       @default(0)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  carnets      YiraSignerCarnet[]
+
+  @@map("yira_merchant")
+}
+
+// ── Collecteur Principal ──────────────────────────────────────────────────────
+model YiraSignerCollecteurPrincipal {
+  id                  String    @id @default(cuid())
+  telephone           String    @unique
+  nom                 String
+  prenom              String?
+  zones               String[]  @default([])
+  country_code        String    @default("CI")
+  tenant_id           String?
+  wallet_id           String?
+  statut              String    @default("EN_ATTENTE")
+  saas_actif          Boolean   @default(false)
+  saas_montant        Int       @default(50000)
+  volume_min          Int       @default(200)
+  taux_completion_min Float     @default(75)
+  reversement_pct     Float     @default(25)
+  score_performance   Float     @default(0)
+  date_contrat        DateTime?
+  renouvellement      DateTime?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  terrains     YiraSignerCollecteurTerrain[]
+  carnets      YiraSignerCarnet[]
+
+  @@map("yira_signer_collecteur_principal")
+}
+
+// ── Collecteur Terrain ────────────────────────────────────────────────────────
+model YiraSignerCollecteurTerrain {
+  id               String    @id @default(cuid())
+  telephone        String    @unique
+  nom              String
+  prenom           String?
+  zone             String
+  country_code     String    @default("CI")
+  principal_id     String
+  wallet_id        String?
+  statut           String    @default("ACTIF")
+  quota_min        Int       @default(50)
+  taux_completion  Float     @default(0)
+  score_perf       Float     @default(0)
+  prime_eligible   Boolean   @default(false)
+  total_carnets    Int       @default(0)
+  total_credits    Int       @default(0)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  principal        YiraSignerCollecteurPrincipal @relation(fields: [principal_id], references: [id])
+  carnets          YiraSignerCarnet[]
+
+  @@map("yira_signer_collecteur_terrain")
+}
+
+// ── Carnet Signer-Signer ──────────────────────────────────────────────────────
+model YiraSignerCarnet {
+  id                      String    @id @default(cuid())
+  reference               String    @unique @default(cuid())
+  merchant_id             String
+  collecteur_terrain_id   String?
+  collecteur_principal_id String?
+  tenant_id               String?
+  telephone               String
+  mise_jour               Int
+  projet                  String?
+  type_projet             String    @default("AUTRE")
+  statut                  String    @default("OUVERT")
+  jour_actuel             Int       @default(0)
+  jours_signes            Int       @default(0)
+  epargne_cumulee         Float     @default(0)
+  epargne_compte          String?
+  nb_pauses               Int       @default(0)
+  en_pause                Boolean   @default(false)
+  pause_fin               DateTime?
+  canal_dominant          String    @default("USSD")
+  kyc_niveau              Int       @default(0)
+  date_debut              DateTime?
+  date_fin_prevue         DateTime?
+  date_completion         DateTime?
+  commission_versee       Boolean   @default(false)
+  score_regularite        Float     @default(0)
+  country_code            String    @default("CI")
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+
+  merchant                YiraMerchant                   @relation(fields: [merchant_id], references: [id])
+  collecteur_terrain      YiraSignerCollecteurTerrain?   @relation(fields: [collecteur_terrain_id], references: [id])
+  collecteur_principal    YiraSignerCollecteurPrincipal? @relation(fields: [collecteur_principal_id], references: [id])
+  jours                   YiraSignerJour[]
+  dossier_credit          YiraSignerDossierCredit?
+
+  @@index([merchant_id])
+  @@index([statut])
+  @@map("yira_signer_carnet")
+}
+
+// ── Jours Signés ──────────────────────────────────────────────────────────────
+model YiraSignerJour {
+  id               String    @id @default(cuid())
+  carnet_id        String
+  numero_jour      Int
+  montant          Float
+  canal            String    @default("USSD_WALLET")
+  signe_par        String    @default("CLIENT")
+  telephone_payeur String?
+  reference_tx     String?
+  statut           String    @default("SIGNE")
+  timestamp        DateTime  @default(now())
+  country_code     String    @default("CI")
+
+  carnet           YiraSignerCarnet @relation(fields: [carnet_id], references: [id])
+
+  @@unique([carnet_id, numero_jour])
+  @@map("yira_signer_jour")
+}
+
+// ── Dossier de Crédit ─────────────────────────────────────────────────────────
+model YiraSignerDossierCredit {
+  id                  String    @id @default(cuid())
+  carnet_id           String    @unique
+  merchant_id         String
+  tenant_id           String
+  telephone           String
+  carnets_completes   Int       @default(0)
+  jours_signes_total  Int
+  jours_possibles     Int
+  regularite_pct      Float
+  epargne_totale      Float
+  capacite_mensuelle  Float
+  canal_dominant      String
+  kyc_niveau          Int
+  anciennete_jours    Int
+  score_credit        Float
+  niveau_credit       String    @default("DEBUTANT")
+  montant_max_suggere Float
+  multiplicateur      Float     @default(3)
+  recommandation      String    @default("NON_ELIGIBLE")
+  projet              String?
+  type_projet         String    @default("AUTRE")
+  statut              String    @default("EN_ATTENTE")
+  decision_banque     String?
+  montant_accorde     Float?
+  taux_interet        Float?
+  duree_mois          Int?
+  mensualite          Float?
+  mise_remboursement  Float?
+  date_envoi          DateTime  @default(now())
+  date_decision       DateTime?
+  pdf_url             String?
+  country_code        String    @default("CI")
+
+  carnet              YiraSignerCarnet @relation(fields: [carnet_id], references: [id])
+
+  @@index([merchant_id])
+  @@index([tenant_id])
+  @@map("yira_signer_dossier_credit")
+}
+
+// ── Wallet Signer (isolé de base_sara) ───────────────────────────────────────
+model YiraSignerWallet {
+  id           String    @id @default(cuid())
+  merchant_id  String    @unique
+  solde        Float     @default(0)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@map("yira_signer_wallet")
+}
