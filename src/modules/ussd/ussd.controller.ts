@@ -1,64 +1,83 @@
-// ============================================================
-// YIRA â€” src/modules/ussd/ussd.controller.ts
-// LAfricaMobile envoie les requÃªtes USSD ici
-// Format : POST avec body form-urlencoded ou JSON
-// ============================================================
+// =============================================================================
+// YIRA V3.0 — UssdController
+// Shortcode lu depuis base_core.country_config (Zéro Hardcode L2)
+// =============================================================================
 import { Controller, Post, Get, Body, Query } from '@nestjs/common';
 import { UssdService } from './ussd.service';
-import { Public }      from '../../auth/decorators';
+import { Public } from '../../auth/decorators';
+import { Pool } from 'pg';
 
 @Controller('ussd')
 export class UssdController {
-  constructor(private ussdService: UssdService) {}
+  private poolCore     = new Pool({ connectionString: process.env.DATABASE_URL_CORE });
+  private shortcodeCache: string | null = null;
 
-  // POST /api/ussd â€” endpoint principal LAfricaMobile
-  // Pas de JWT â€” LAfricaMobile n'envoie pas de token
-  @Post()
-  @Public()
-  async traiter(
-    @Body('sessionId')   sessionId: string,
-    @Body('phoneNumber') phoneNumber: string,
-    @Body('serviceCode') serviceCode: string,
-    @Body('text')        text: string,
-  ) {
-    const reponse = await this.ussdService.traiter({
-      sessionId:   sessionId ?? `SIM_${Date.now()}`,
-      phoneNumber: phoneNumber ?? '0000000000',
-      serviceCode: serviceCode ?? '*7572#',
-      text:        text ?? '',
-    });
-    // LAfricaMobile attend une rÃ©ponse texte plain
-    return reponse;
+  constructor(private ussd: UssdService) {}
+
+  // ---------------------------------------------------------------------------
+  // Lire shortcode depuis base_core (Zéro Hardcode)
+  // ---------------------------------------------------------------------------
+  private async getShortcode(): Promise<string> {
+    if (this.shortcodeCache) return this.shortcodeCache;
+    try {
+      const tenantId = process.env.NODE_ENV === 'production' ? 'CI' : 'NAJO_DEV';
+      const res = await this.poolCore.query(
+        `SELECT ussd_short_code FROM core.country_config WHERE tenant_id = $1`,
+        [tenantId],
+      );
+      const code = res.rows[0]?.ussd_short_code;
+      if (code) this.shortcodeCache = code;
+      return code ?? (process.env.NODE_ENV === 'production' ? '*7572#' : '*384*54077#');
+    } catch {
+      return process.env.NODE_ENV === 'production' ? '*7572#' : '*384*54077#';
+    }
   }
 
-  // GET /api/ussd/simuler â€” simulateur USSD pour tests
-  // Utiliser dans le navigateur ou Postman
+  // ---------------------------------------------------------------------------
+  // POST /api/ussd — Callback AfricasTalking
+  // ---------------------------------------------------------------------------
+  @Post()
+  @Public()
+  async handleUssd(@Body() body: any) {
+    const shortcode = await this.getShortcode();
+    return this.ussd.traiter({
+      sessionId:   body.sessionId,
+      serviceCode: body.serviceCode ?? shortcode,
+      phoneNumber: body.phoneNumber,
+      text:        body.text ?? '',
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // GET /api/ussd/simuler — Test local
+  // ---------------------------------------------------------------------------
   @Get('simuler')
   @Public()
   async simuler(
-    @Query('tel')    tel: string,
-    @Query('texte')  texte: string,
-    @Query('sessId') sessId: string,
+    @Query('tel') tel = '+2250700000001',
+    @Query('text') text = '',
   ) {
-    const reponse = await this.ussdService.traiter({
-      sessionId:   sessId ?? `TEST_${Date.now()}`,
-      phoneNumber: tel ?? '0701000099',
-      serviceCode: '*7572#',
-      text:        texte ?? '',
+    const shortcode = await this.getShortcode();
+    return this.ussd.traiter({
+      sessionId:   'sim-' + Date.now(),
+      serviceCode: shortcode,
+      phoneNumber: tel,
+      text,
     });
-    // Formatter pour affichage dans navigateur
-    return {
-      ecran_ussd: reponse,
-      type:       reponse.startsWith('CON') ? 'CONTINUER' : 'TERMINER',
-      longueur:   reponse.length,
-      nokia_ok:   reponse.length <= 182,
-    };
   }
 
+  // ---------------------------------------------------------------------------
   // GET /api/ussd/ping
+  // ---------------------------------------------------------------------------
   @Get('ping')
   @Public()
-  ping() {
-    return { module: 'YIRA-USSD', status: 'âœ… opÃ©rationnel', shortcode: '*7572#' };
+  async ping() {
+    const shortcode = await this.getShortcode();
+    return {
+      module:    'YIRA-USSD',
+      status:    '✅ opérationnel',
+      shortcode,
+      env:       process.env.NODE_ENV ?? 'development',
+    };
   }
 }
