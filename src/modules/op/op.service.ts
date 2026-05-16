@@ -1,192 +1,402 @@
-﻿import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+﻿// =============================================================================
+// YIRA V3.0 — OpService (YIRA-OS)
+// Niveau 4 (N4) — Orientation Scolaire + Professionnelle
+// L3 §4.4 : AIP multi-modèles — IaService (Gemini + Claude)
+// L3 §5.4 : Moteur NIE — base_orientation connectée
+// Prompt Vieux Père V2 — lu depuis base_core (Zéro Hardcode)
+// Guardrails automatiques — 3 niveaux de protection
+// =============================================================================
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Pool }          from 'pg';
 import { ConfigService } from '@nestjs/config';
-import { IaService } from '../../ia/ia.service';
-import { FreemiumService } from '../freemium/freemium.service';
+import { IaService }     from '../../ia/ia.service';
 
-export type SegmentPro = 'SALARIE_FORMEL' | 'ENTREPRENEUR_INFORMEL' | 'NEET' | 'RECONVERSION' | 'CADRE_FP_CI';
-
-export interface ProfilPro {
-  telephone: string; country_code: string; prenom: string; age: number;
-  zone: string; milieu: string; segment: SegmentPro; code_holland: string;
-  annees_experience?: number; secteur_actuel?: string; niveau_etude?: string;
-  niveau_acces?: string;
-}
-export interface SessionOpInput { profil: ProfilPro; canal: 'APP' | 'WEB' | 'USSD'; }
-export interface MetierCI {
-  nom: string; secteur: string; compatibilite: number;
-  salaire_min?: number; salaire_max?: number; formation?: string; acteurs_ci?: string[];
-}
-export interface PiiEtape {
-  delai: 'J+30' | 'J+90' | 'J+180'; priorite: string;
-  action: string; acteur?: string; lien?: string;
-}
-export interface ResultatOp {
-  session_id: string; segment: SegmentPro;
-  metiers_ci: MetierCI[]; pii: PiiEtape[];
-  rapport_nie: string; sara_eligible?: boolean;
-  trust_index: number | string; latency_ms: number;
-  _upgrade_message?: string; _upgrade_lien?: string;
+export interface ProfilOrientation {
+  telephone:       string;
+  country_code:    string;
+  niveau:          'BEPC' | 'BAC' | 'BAC_PLUS';
+  serie?:          string;
+  moyenne?:        number;
+  riasec?:         { r: number; i: number; a: number; s: number; e: number; c: number };
+  big_five?:       { o: number; c: number; e: number; a: number; n: number };
+  trust_index?:    number;
+  region?:         string;
+  budget_parents?: number;
 }
 
-const METIERS_CI: Record<string, MetierCI[]> = {
-  R: [
-    { nom: 'Technicien BTP', secteur: 'Construction', compatibilite: 90, salaire_min: 150000, salaire_max: 400000, acteurs_ci: ['AGEFOP', 'FDFP'] },
-    { nom: 'Mecanicien Auto', secteur: 'Transport', compatibilite: 85, salaire_min: 100000, salaire_max: 300000 },
-    { nom: 'Electricien', secteur: 'Energie', compatibilite: 88, salaire_min: 120000, salaire_max: 350000 },
-    { nom: 'Agriculteur moderne', secteur: 'Agribusiness', compatibilite: 80, salaire_min: 80000, salaire_max: 500000, acteurs_ci: ['ANADER'] },
-  ],
-  I: [
-    { nom: 'Developpeur logiciel', secteur: 'Tech', compatibilite: 95, salaire_min: 300000, salaire_max: 800000, acteurs_ci: ['Hub Ivoire'] },
-    { nom: 'Ingenieur data', secteur: 'Tech', compatibilite: 90, salaire_min: 400000, salaire_max: 1000000 },
-    { nom: 'Medecin', secteur: 'Sante', compatibilite: 88, salaire_min: 500000, salaire_max: 1500000 },
-    { nom: 'Analyste financier', secteur: 'Finance', compatibilite: 82, salaire_min: 350000, salaire_max: 900000 },
-  ],
-  A: [
-    { nom: 'Designer graphique', secteur: 'Communication', compatibilite: 92, salaire_min: 150000, salaire_max: 500000, acteurs_ci: ['Hub Ivoire'] },
-    { nom: 'Journaliste', secteur: 'Medias', compatibilite: 85, salaire_min: 120000, salaire_max: 400000 },
-    { nom: 'Architecte', secteur: 'BTP', compatibilite: 88, salaire_min: 400000, salaire_max: 1200000 },
-  ],
-  S: [
-    { nom: 'Enseignant', secteur: 'Education', compatibilite: 95, salaire_min: 150000, salaire_max: 450000, formation: 'CAFOP', acteurs_ci: ['MENET-FP'] },
-    { nom: 'Conseiller RH', secteur: 'RH', compatibilite: 90, salaire_min: 250000, salaire_max: 700000 },
-    { nom: 'Infirmier', secteur: 'Sante', compatibilite: 88, salaire_min: 180000, salaire_max: 450000, formation: 'INFAS' },
-    { nom: 'Travailleur social', secteur: 'ONG', compatibilite: 85, salaire_min: 150000, salaire_max: 400000, acteurs_ci: ['UNICEF'] },
-  ],
-  E: [
-    { nom: 'Commercial', secteur: 'Commerce', compatibilite: 92, salaire_min: 100000, salaire_max: 600000 },
-    { nom: 'Chef de projet', secteur: 'Management', compatibilite: 90, salaire_min: 350000, salaire_max: 900000 },
-    { nom: 'Entrepreneur', secteur: 'Informel', compatibilite: 88, salaire_min: 0, salaire_max: 2000000, acteurs_ci: ['CEPICI', 'BNI', 'AGEPE'] },
-    { nom: 'Responsable marketing', secteur: 'Communication', compatibilite: 85, salaire_min: 300000, salaire_max: 800000 },
-  ],
-  C: [
-    { nom: 'Comptable', secteur: 'Finance', compatibilite: 95, salaire_min: 200000, salaire_max: 600000, formation: 'BTS Comptabilite' },
-    { nom: 'Gestionnaire RH', secteur: 'Administration', compatibilite: 88, salaire_min: 250000, salaire_max: 650000 },
-    { nom: 'Agent bancaire', secteur: 'Banque', compatibilite: 85, salaire_min: 200000, salaire_max: 500000 },
-    { nom: 'Statisticien', secteur: 'Donnees', compatibilite: 82, salaire_min: 300000, salaire_max: 700000 },
-  ],
-};
-
-const ACTEURS_SEGMENT: Record<SegmentPro, string[]> = {
-  SALARIE_FORMEL:        ['AGEPE', 'JobnetAfrica', 'LinkedIn CI'],
-  ENTREPRENEUR_INFORMEL: ['CEPICI', 'BNI', 'Orange Money', 'Wave CI', 'FDFP'],
-  NEET:                  ['AGEFOP', 'FDFP', 'AGEPE', 'Maison Emploi'],
-  RECONVERSION:          ['AGEFOP', 'FDFP', 'CFPA'],
-  CADRE_FP_CI:           ['MFPE', 'ENA CI', 'CAFOP'],
-};
+export interface RapportNIE {
+  profil:              ProfilOrientation;
+  filieres:            any[];
+  metiers:             any[];
+  formations:          any[];
+  plan_coaching:       any;
+  budget_parents:      any;
+  message_orientation: string;
+  score_confiance:     number;
+}
 
 @Injectable()
 export class OpService implements OnModuleInit {
   private readonly logger = new Logger(OpService.name);
+  private pool!:     Pool;
+  private poolCore!: Pool;
+  private ready = false;
 
   constructor(
-    private readonly iaService: IaService,
-    private readonly config: ConfigService,
-    private readonly freemiumService: FreemiumService,
+    private config: ConfigService,
+    private ia:     IaService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    this.logger.warn('OpService — base_orientation sera connectee au sprint suivant.');
-  }
-
-  async genererRapportOp(input: SessionOpInput): Promise<ResultatOp> {
-    const start = Date.now();
-    const session_id = `OP_${Date.now()}_${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    const metiers_ci = this.matcherMetiers(input.profil);
-    const pii = this.genererPII(input.profil);
-    const sara_eligible = this.verifierSara(input.profil);
-    const trust_index = this.calculerTrust(input.profil);
-
-    const iaResult = await this.iaService.generate({
-      module: 'YIRAOP', usage: 'NIE_RAPPORT_PRO',
-      pays: input.profil.country_code, canal: input.canal,
-      variables: {
-        prenom: input.profil.prenom, age: input.profil.age,
-        profil_riasec: input.profil.code_holland, segment: input.profil.segment,
-        zone: input.profil.zone,
-        metiers_top3: metiers_ci.slice(0, 3).map((m) => m.nom).join(', '),
-        acteurs_ci: ACTEURS_SEGMENT[input.profil.segment].join(', '),
-        sara_eligible, trust_index,
-      },
-    });
-
-    const resultat: ResultatOp = {
-      session_id, segment: input.profil.segment,
-      metiers_ci, pii, rapport_nie: iaResult.text ?? '',
-      sara_eligible, trust_index, latency_ms: Date.now() - start,
-    };
-
-    const niveau = (input.profil.niveau_acces ?? 'FREE') as any;
-    const filtre = await this.freemiumService.obtenirFiltre(input.profil.country_code, niveau);
-    return this.freemiumService.filtrerResultatOp(resultat, filtre) as ResultatOp;
-  }
-
-  private matcherMetiers(p: ProfilPro): MetierCI[] {
-    const found = new Map<string, MetierCI>();
-    for (const d of p.code_holland.split('')) {
-      for (const m of METIERS_CI[d] ?? []) {
-        if (!found.has(m.nom)) {
-          let c = m.compatibilite;
-          if (p.segment === 'ENTREPRENEUR_INFORMEL' && d === 'E') c += 5;
-          if (p.segment === 'NEET') c = Math.max(50, c - 10);
-          found.set(m.nom, { ...m, compatibilite: Math.min(100, c) });
-        }
-      }
+  async onModuleInit() {
+    try {
+      this.pool     = new Pool({ connectionString: this.config.get('DATABASE_URL_ORIENTATION') });
+      this.poolCore = new Pool({ connectionString: this.config.get('DATABASE_URL_CORE') });
+      const client  = await this.pool.connect();
+      client.release();
+      this.ready = true;
+      this.logger.log('[OP] OpService connecte a base_orientation + base_core');
+    } catch (e: any) {
+      this.logger.warn('[OP] base_orientation non disponible: ' + e.message);
     }
-    return Array.from(found.values()).sort((a, b) => b.compatibilite - a.compatibilite).slice(0, 6);
   }
 
-  private genererPII(p: ProfilPro): PiiEtape[] {
-    const plans: Record<SegmentPro, PiiEtape[]> = {
-      SALARIE_FORMEL: [
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'MAJ CV et profil LinkedIn CI', acteur: 'AGEPE' },
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Deposer 5 candidatures ciblees', acteur: 'JobnetAfrica' },
-        { delai: 'J+90',  priorite: 'MOYENNE', action: 'Certification professionnelle CI', acteur: 'FDFP' },
-        { delai: 'J+180', priorite: 'MOYENNE', action: 'Negocier periode essai ou stage qualifiant' },
-      ],
-      ENTREPRENEUR_INFORMEL: [
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Formaliser au CEPICI', acteur: 'CEPICI', lien: 'cepici.ci' },
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Ouvrir compte Orange Money ou Wave Business' },
-        { delai: 'J+90',  priorite: 'HAUTE',   action: 'Acceder financement BNI PME', acteur: 'BNI', lien: 'bni.ci' },
-        { delai: 'J+90',  priorite: 'MOYENNE', action: 'Formation gestion PME via FDFP', acteur: 'FDFP', lien: 'fdfp.ci' },
-        { delai: 'J+180', priorite: 'MOYENNE', action: 'Rejoindre cooperative professionnelle CI' },
-      ],
-      NEET: [
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Inscription AGEPE emploi jeunes', acteur: 'AGEPE', lien: 'agepe.ci' },
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Formation courte 3-6 mois AGEFOP', acteur: 'AGEFOP', lien: 'agefop.ci' },
-        { delai: 'J+90',  priorite: 'HAUTE',   action: 'Programme insertion professionnelle CI', acteur: 'FDFP' },
-        { delai: 'J+180', priorite: 'MOYENNE', action: 'Viser emploi ou auto-emploi dans son secteur' },
-      ],
-      RECONVERSION: [
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Bilan competences avec conseiller AGEFOP', acteur: 'AGEFOP' },
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Identifier passerelles vers nouveau secteur' },
-        { delai: 'J+90',  priorite: 'HAUTE',   action: 'Formation reconversion financee FDFP', acteur: 'FDFP' },
-        { delai: 'J+180', priorite: 'MOYENNE', action: 'Stage transition nouveau secteur vise' },
-      ],
-      CADRE_FP_CI: [
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Identifier concours administratifs MFPE', acteur: 'MFPE' },
-        { delai: 'J+30',  priorite: 'HAUTE',   action: 'Preparer dossier ENA CI si eligible', acteur: 'ENA CI' },
-        { delai: 'J+90',  priorite: 'MOYENNE', action: 'Formation continue FP', acteur: 'CAFOP' },
-        { delai: 'J+180', priorite: 'MOYENNE', action: 'Viser promotion interne ou changement corps' },
-      ],
+  // ---------------------------------------------------------------------------
+  // EVALUER — Point d'entrée principal YIRA-OS
+  // ---------------------------------------------------------------------------
+  async evaluer(profil: ProfilOrientation): Promise<RapportNIE> {
+    this.logger.log('[OP] Evaluation NIE pour ' + profil.telephone);
+
+    const [filieres, metiers, formations] = await Promise.all([
+      this.recommanderFilieres(profil),
+      this.recommanderMetiers(profil),
+      this.recommanderFormations(profil),
+    ]);
+
+    const plan_coaching  = this.genererPlanCoaching(profil, filieres[0], metiers[0]);
+    const budget_parents = this.calculerBudgetParents(formations[0], profil.budget_parents);
+    const message        = await this.genererMessageIA(profil, filieres, metiers);
+
+    const rapport: RapportNIE = {
+      profil, filieres, metiers, formations,
+      plan_coaching, budget_parents,
+      message_orientation: message,
+      score_confiance: profil.trust_index ?? 75,
     };
-    return plans[p.segment] ?? [];
+
+    await this.sauvegarderRapport(rapport);
+    return rapport;
   }
 
-  private verifierSara(p: ProfilPro): boolean {
-    return (
-      p.segment === 'ENTREPRENEUR_INFORMEL' ||
-      p.segment === 'NEET' ||
-      (p.segment === 'SALARIE_FORMEL' && p.milieu === 'RURAL')
-    );
+  // ---------------------------------------------------------------------------
+  // RECOMMANDER FILIÈRES
+  // ---------------------------------------------------------------------------
+  private async recommanderFilieres(profil: ProfilOrientation): Promise<any[]> {
+    if (!this.ready) return this.filieresMock(profil);
+    try {
+      const res = await this.pool.query(`
+        SELECT f.*
+        FROM yira_filiere_universite f
+        WHERE f.tenant_id = 'CI'
+        LIMIT 5
+      `);
+      if (res.rows.length > 0) return res.rows;
+    } catch (e: any) {
+      this.logger.warn('[OP] Erreur filieres: ' + e.message);
+    }
+    return this.filieresMock(profil);
   }
 
-  private calculerTrust(p: ProfilPro): number {
-    let s = 40;
-    s += p.code_holland ? 20 : 0;
-    s += p.age ? 10 : 0;
-    s += p.zone ? 10 : 0;
-    s += p.annees_experience !== undefined ? 10 : 0;
-    s += p.niveau_etude ? 10 : 0;
-    return Math.min(100, s);
+  // ---------------------------------------------------------------------------
+  // RECOMMANDER MÉTIERS — Alignés RIASEC
+  // ---------------------------------------------------------------------------
+  private async recommanderMetiers(profil: ProfilOrientation): Promise<any[]> {
+    if (!this.ready) return this.metiersMock(profil);
+    try {
+      const dominant = profil.riasec ? this.getDominantRiasec(profil.riasec) : ['I', 'S'];
+      const res = await this.pool.query(`
+        SELECT m.*,
+               CASE WHEN m.riasec_codes && $1 THEN 3
+                    WHEN m.riasec_codes && $2 THEN 1
+                    ELSE 0 END as score_match
+        FROM yira_metier_avenir m
+        WHERE m.tenant_id = 'CI'
+        ORDER BY score_match DESC, m.demande_2030 DESC
+        LIMIT 8
+      `, [dominant, dominant.slice(0, 1)]);
+      if (res.rows.length > 0) return res.rows;
+    } catch (e: any) {
+      this.logger.warn('[OP] Erreur metiers: ' + e.message);
+    }
+    return this.metiersMock(profil);
+  }
+
+  // ---------------------------------------------------------------------------
+  // RECOMMANDER FORMATIONS
+  // ---------------------------------------------------------------------------
+  private async recommanderFormations(profil: ProfilOrientation): Promise<any[]> {
+    if (!this.ready) return this.formationsMock();
+    try {
+      const niveauEntree = profil.niveau === 'BAC' ? profil.serie ?? 'BAC' : profil.niveau;
+      const res = await this.pool.query(`
+        SELECT f.*
+        FROM yira_formation_ci f
+        WHERE f.tenant_id = 'CI'
+          AND (f.filieres_bac @> $1 OR f.niveau_entree = $2)
+        ORDER BY f.cout_annuel ASC
+        LIMIT 6
+      `, [[niveauEntree], niveauEntree]);
+      if (res.rows.length > 0) return res.rows;
+    } catch (e: any) {
+      this.logger.warn('[OP] Erreur formations: ' + e.message);
+    }
+    return this.formationsMock();
+  }
+
+  // ---------------------------------------------------------------------------
+  // PLAN COACHING J+30/J+90/J+180
+  // ---------------------------------------------------------------------------
+  private genererPlanCoaching(profil: ProfilOrientation, filiere: any, metier: any): any {
+    const filiereCible = filiere?.nom ?? 'Filiere scientifique';
+    const metierCible  = metier?.nom  ?? 'Metier tech';
+    const moyenne      = profil.moyenne ?? 12;
+    return {
+      filiere_cible: filiereCible,
+      metier_cible:  metierCible,
+      j30: {
+        titre:    'Consolidation scolaire',
+        actions:  [
+          'Renforcement en ' + (moyenne < 12 ? 'Maths et Francais' : 'matieres scientifiques') + ' (2h/semaine)',
+          'Inscription aux cours de soutien ONFP',
+          'Test de positionnement YIRA-QUIZ ' + filiereCible,
+        ],
+        objectif: 'Atteindre moyenne ' + Math.min(14, moyenne + 1) + '/20',
+      },
+      j90: {
+        titre:    'Preparation candidature',
+        actions:  [
+          'Concours blanc DREN (inscription avant dec.)',
+          'Visite etablissements recommandes',
+          'Constitution du dossier inscription',
+          'Rencontre professionnel secteur ' + (metier?.secteur ?? 'TECH'),
+        ],
+        objectif: 'Dossier complet + lettre de motivation redigee',
+      },
+      j180: {
+        titre:    'Inscription et suivi',
+        actions:  [
+          'Depot dossier ' + filiereCible + ' avant date limite',
+          'Inscription concours entree si requis',
+          'Plan financement valide avec les parents',
+          'Ouverture carnet SARA epargne scolarite',
+        ],
+        objectif: 'Inscription confirmee pour la rentree suivante',
+      },
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // BUDGET PARENTS
+  // ---------------------------------------------------------------------------
+  private calculerBudgetParents(formation: any, budgetDisponible?: number): any {
+    const coutAnnuel     = formation?.cout_annuel ?? 500000;
+    const duree          = formation?.duree_ans   ?? 3;
+    const totalFormation = coutAnnuel * duree;
+    const fraisVie       = 150000 * 12 * duree;
+    const totalEstime    = totalFormation + fraisVie;
+    const epargne_mensuelle = Math.ceil(totalEstime / (duree * 12));
+    const epargne_sara_jour = Math.ceil(epargne_mensuelle / 30);
+    return {
+      formation:         formation?.nom ?? 'Formation recommandee',
+      cout_annuel:       coutAnnuel,
+      duree_ans:         duree,
+      total_formation:   totalFormation,
+      frais_vie:         fraisVie,
+      total_estime:      totalEstime,
+      budget_disponible: budgetDisponible ?? 0,
+      deficit:           Math.max(0, totalEstime - (budgetDisponible ?? 0)),
+      plan_epargne: {
+        mensuel_recommande: epargne_mensuelle,
+        sara_jour:          epargne_sara_jour,
+        message:            'Ouvrir un carnet SARA de ' + epargne_sara_jour + ' FCFA/jour pour couvrir la scolarite',
+      },
+      roi: {
+        salaire_median_apres: 450000,
+        mois_remboursement:   Math.ceil(totalEstime / 450000),
+        message:              'Retour sur investissement estime: ' + Math.ceil(totalEstime / 450000) + ' mois apres insertion',
+      },
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // MESSAGE IA — Prompt lu depuis base_core (Zéro Hardcode L3)
+  // ---------------------------------------------------------------------------
+  private async genererMessageIA(
+    profil: ProfilOrientation,
+    filieres: any[],
+    metiers: any[],
+  ): Promise<string> {
+    try {
+      const promptData = await this.obtenirPromptBaseCore('VIEUX_PERE_ORIENTATION_V2');
+      const guardrails = promptData?.guardrails ?? {};
+
+      const promptUser = promptData?.prompt_user_template
+        ? promptData.prompt_user_template
+            .replace('{{niveau}}',  profil.niveau ?? '')
+            .replace('{{serie}}',   profil.serie  ?? 'non precise')
+            .replace('{{moyenne}}', String(profil.moyenne ?? 'non precisee'))
+            .replace('{{filiere}}', filieres[0]?.nom ?? 'Sciences')
+            .replace('{{metier}}',  metiers[0]?.nom  ?? 'Tech')
+            .replace('{{region}}',  profil.region    ?? 'Abidjan')
+        : 'Eleve niveau ' + profil.niveau + ', filiere ' + (filieres[0]?.nom ?? 'Sciences') +
+          ', metier ' + (metiers[0]?.nom ?? 'Tech') + '. Genere le message Vieux Pere. Max 280 chars.';
+
+      const promptSysteme = promptData?.prompt_system ??
+        'Tu es le Vieux Pere bienveillant de YIRA CI. Regles: jamais de references religieuses ou ethniques. Ancrer dans la realite ivoirienne. Max 280 caracteres. Texte simple.';
+
+      const result = await this.ia.generate({
+        module:       'YIRA_OS',
+        usage:        'ORIENTATION_NIE',
+        pays:         profil.country_code ?? 'CI',
+        canal:        'APP',
+        variables:    {},
+        customPrompt: promptSysteme + '\n\n' + promptUser,
+      });
+
+      const message = result.text ?? this.messageMock(profil, filieres, metiers);
+      return this.appliquerGuardrails(message, guardrails);
+
+    } catch (e: any) {
+      this.logger.warn('[OP] Erreur IA message: ' + e.message);
+      return this.messageMock(profil, filieres, metiers);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // LIRE PROMPT DEPUIS base_core (Zéro Hardcode)
+  // ---------------------------------------------------------------------------
+  private async obtenirPromptBaseCore(promptKey: string): Promise<any> {
+    try {
+      const res = await this.poolCore.query(`
+        SELECT prompt_system, prompt_user_template, guardrails, cqci_filters
+        FROM core.ia_prompts
+        WHERE prompt_key = $1
+          AND tenant_id  = 'CI'
+          AND status     = 'ACTIVE'
+        ORDER BY version DESC
+        LIMIT 1
+      `, [promptKey]);
+      if (res.rows.length > 0) {
+        this.logger.log('[OP] Prompt ' + promptKey + ' charge depuis base_core');
+        return res.rows[0];
+      }
+    } catch (e: any) {
+      this.logger.warn('[OP] Erreur lecture prompt base_core: ' + e.message);
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // GUARDRAILS — 3 niveaux de protection (L3 §7.2)
+  // ---------------------------------------------------------------------------
+  private appliquerGuardrails(message: string, guardrails: any): string {
+    const forbidden: string[]   = guardrails?.forbidden_words ?? [];
+    const maxChars: number      = guardrails?.max_chars ?? 280;
+    const sosKeywords: string[] = guardrails?.sos_keywords ?? ['desespoir', 'mourir', 'suicide'];
+
+    if (sosKeywords.some(mot => message.toLowerCase().includes(mot))) {
+      this.logger.error('[OP][GUARDRAIL][SOS] Trigger SOS detecte');
+      return 'YIRA est la pour toi. Si tu traverses une periode difficile, compose le *7572*5# pour parler a quelqu un. Tu n es pas seul(e).';
+    }
+
+    const motsTrouves = forbidden.filter(mot => message.toLowerCase().includes(mot.toLowerCase()));
+    if (motsTrouves.length > 0) {
+      this.logger.warn('[OP][GUARDRAIL] Mots interdits: ' + motsTrouves.join(', '));
+      return 'Mon enfant, avec ta moyenne et ton profil, tu as de vraies opportunites en Cote d Ivoire. Inscris-toi aux cours de renforcement ONFP et prepare ton dossier. YIRA t accompagne!';
+    }
+
+    if (message.length > maxChars) {
+      const tronque      = message.slice(0, maxChars - 3).trim();
+      const dernierPoint = Math.max(tronque.lastIndexOf('.'), tronque.lastIndexOf('!'), tronque.lastIndexOf('?'));
+      return dernierPoint > maxChars * 0.7 ? tronque.slice(0, dernierPoint + 1) : tronque + '...';
+    }
+
+    return message;
+  }
+
+  // ---------------------------------------------------------------------------
+  // SAUVEGARDE RAPPORT — colonnes réelles de yira_analyse_os
+  // ---------------------------------------------------------------------------
+  private async sauvegarderRapport(rapport: RapportNIE): Promise<void> {
+    if (!this.ready) return;
+    try {
+      const dominantRiasec = rapport.profil.riasec
+        ? Object.entries(rapport.profil.riasec)
+            .sort(([, a], [, b]) => (b as number) - (a as number))[0][0].toUpperCase()
+        : 'I';
+
+      await this.pool.query(`
+        INSERT INTO yira_analyse_os (
+          id, utilisateur_id, type_moteur,
+          code_riasec, top1_filiere_code,
+          top1_score_global, plan_action, trust_index_ajout
+        ) VALUES (
+          gen_random_uuid()::text, $1, 'YIRA-OS-V3',
+          $2, $3, $4, $5, $6
+        )
+      `, [
+        rapport.profil.telephone,
+        dominantRiasec,
+        rapport.filieres[0]?.code ?? 'SEC_D',
+        rapport.filieres[0]?.score_match ?? 75,
+        JSON.stringify(rapport.plan_coaching),
+        rapport.profil.trust_index ?? 75,
+      ]);
+    } catch (e: any) {
+      this.logger.warn('[OP] Erreur sauvegarde rapport: ' + e.message);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // UTILITAIRES
+  // ---------------------------------------------------------------------------
+  private getDominantRiasec(riasec: any): string[] {
+    return Object.entries(riasec)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .slice(0, 2)
+      .map(([k]) => k.toUpperCase());
+  }
+
+  private messageMock(profil: ProfilOrientation, filieres: any[], metiers: any[]): string {
+    return 'Bravo pour ton parcours! Avec ton profil, la filiere ' +
+      (filieres[0]?.nom ?? 'scientifique') + ' et le metier de ' +
+      (metiers[0]?.nom ?? 'technicien') + ' sont faits pour toi. YIRA croit en toi!';
+  }
+
+  private filieresMock(profil: ProfilOrientation): any[] {
+    return [
+      { code: 'SEC_D', nom: 'Terminale D - Sciences de la Vie', score_match: 90, seuil_min: 11 },
+      { code: 'SEC_C', nom: 'Terminale C - Mathematiques',      score_match: 75, seuil_min: 13 },
+    ];
+  }
+
+  private metiersMock(profil: ProfilOrientation): any[] {
+    return [
+      { code: 'DEV_WEB_MOBILE',     nom: 'Developpeur Web/Mobile', secteur: 'TECH',        salaire_median: 450000, demande_2030: 580 },
+      { code: 'DATA_SCIENTIST',     nom: 'Data Scientist',          secteur: 'TECH',        salaire_median: 700000, demande_2030: 650 },
+      { code: 'INGENIEUR_AGRONOME', nom: 'Ingenieur Agronome',      secteur: 'AGRICULTURE', salaire_median: 500000, demande_2030: 460 },
+    ];
+  }
+
+  private formationsMock(): any[] {
+    return [
+      { code: 'BTS_INFO_IUT',         nom: 'BTS Informatique',      etablissement: 'IUT Abidjan', cout_annuel: 250000, duree_ans: 2 },
+      { code: 'INGENIEUR_INFO_INPHB', nom: 'Ingenieur Informatique', etablissement: 'INPHB',       cout_annuel: 350000, duree_ans: 5 },
+    ];
+  }
+
+  async ping(): Promise<any> {
+    const nbMetiers    = this.ready ? (await this.pool.query('SELECT COUNT(*) FROM yira_metier_avenir')).rows[0].count    : '?';
+    const nbFormations = this.ready ? (await this.pool.query('SELECT COUNT(*) FROM yira_formation_ci')).rows[0].count     : '?';
+    return { status: 'YIRA-OS OK', connected: this.ready, metiers: nbMetiers, formations: nbFormations, timestamp: new Date().toISOString() };
   }
 }
