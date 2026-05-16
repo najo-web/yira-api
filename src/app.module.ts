@@ -12,6 +12,7 @@ import { UssdModule } from './modules/ussd/ussd.module';
 import { FreemiumModule } from './modules/freemium/freemium.module';
 import { CoreConfigModule } from './core-config/core-config.module';
 import { ModerationModule } from './modules/moderation/moderation.module';
+import { SaraModule } from './modules/sara/sara.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ModerationModule } from './modules/moderation/moderation.module';
     ScheduleModule.forRoot(),
     QuizModule,
     ModerationModule,
+    SaraModule,
   ],
 })
 export class AppModule {}

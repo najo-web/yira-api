@@ -108,6 +108,25 @@ services:
       timeout: 5s
       retries: 5
 
+      # ── base_sara (Wallet, Tontine, SARA SCORE) ──
+  db_sara:
+    image: postgres:16-alpine
+    container_name: yira_db_sara
+    environment:
+      POSTGRES_USER: yira_sara
+      POSTGRES_PASSWORD: yira_sara_2026_secure
+      POSTGRES_DB: yira_sara
+    ports:
+      - '5438:5432'
+    volumes:
+      - db_sara_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yira_sara -d yira_sara']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   db_cqci:
     image: postgres:16-alpine
     container_name: yira_db_cqci
@@ -149,4 +168,5 @@ volumes:
   db_etude_data:
   db_sos_data:
   db_cqci_data:
+  db_sara_data:
   redis_data:

@@ -1,0 +1,127 @@
+// =============================================================================
+// YIRA V3.0 — schema_sara.prisma
+// base_sara : Wallet, Tontine, SARA SCORE, Boutique
+// L3 §3.7 : Données financières — chiffrement AES-256, RLS tenant_id
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client-sara"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_SARA")
+}
+
+// ── Wallet SARA ──────────────────────────────────────────────────────────────
+model SaraWallet {
+  id            String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenant_id     String    @db.VarChar(10) @default("CI")
+  user_id       String
+  solde_fcfa    Int       @default(0)
+  solde_points  Int       @default(0)
+  statut        String    @default("ACTIF")
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  transactions  SaraTransaction[]
+
+  @@unique([user_id, tenant_id])
+  @@index([tenant_id])
+  @@map("sara_wallet")
+}
+
+// ── Transactions Wallet ───────────────────────────────────────────────────────
+model SaraTransaction {
+  id              String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenant_id       String    @db.VarChar(10) @default("CI")
+  wallet_id       String
+  type            String    // DEPOT, RETRAIT, AIRTIME, TONTINE_COTISATION, TONTINE_GAIN, RECOMPENSE
+  montant_fcfa    Int
+  solde_avant     Int
+  solde_apres     Int
+  reference       String    @unique @default(dbgenerated("gen_random_uuid()::text"))
+  description     String?
+  statut          String    @default("SUCCES")
+  provider        String?   // OM, MTN, WAVE
+  created_at      DateTime  @default(now())
+
+  wallet          SaraWallet @relation(fields: [wallet_id], references: [id])
+
+  @@index([wallet_id])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@map("sara_transaction")
+}
+
+// ── Tontine Digitale ─────────────────────────────────────────────────────────
+model SaraTontine {
+  id              String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenant_id       String    @db.VarChar(10) @default("CI")
+  nom             String
+  montant_fcfa    Int
+  frequence       String    // HEBDO, MENSUEL
+  nb_membres_max  Int       @default(10)
+  statut          String    @default("OUVERTE")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  membres         SaraTontineMembre[]
+
+  @@index([tenant_id])
+  @@map("sara_tontine")
+}
+
+// ── Membres Tontine ───────────────────────────────────────────────────────────
+model SaraTontineMembre {
+  id            String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenant_id     String    @db.VarChar(10) @default("CI")
+  tontine_id    String
+  user_id       String
+  ordre_tour    Int
+  a_recu        Boolean   @default(false)
+  joined_at     DateTime  @default(now())
+
+  tontine       SaraTontine @relation(fields: [tontine_id], references: [id])
+
+  @@unique([tontine_id, user_id])
+  @@index([tenant_id])
+  @@map("sara_tontine_membre")
+}
+
+// ── SARA SCORE ────────────────────────────────────────────────────────────────
+model SaraScore {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenant_id           String    @db.VarChar(10) @default("CI")
+  user_id             String    @unique
+  score               Int       @default(0)      // 0-1000
+  niveau              String    @default("DEBUTANT") // DEBUTANT, BRONZE, ARGENT, OR, PLATINE
+  nb_quiz_repondus    Int       @default(0)
+  nb_jours_consecutifs Int      @default(0)
+  nb_tontines_honores Int       @default(0)
+  nb_paiements_temps  Int       @default(0)
+  last_computed_at    DateTime  @default(now())
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  @@index([tenant_id])
+  @@index([score(sort: Desc)])
+  @@map("sara_score")
+}
+
+// ── Boutique SARA ─────────────────────────────────────────────────────────────
+model SaraArticle {
+  id            String    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenant_id     String    @db.VarChar(10) @default("CI")
+  nom           String
+  description   String?
+  prix_fcfa     Int
+  prix_points   Int       @default(0)
+  categorie     String    // AIRTIME, FORMATION, COUPON, SERVICE
+  stock         Int       @default(-1) // -1 = illimité
+  actif         Boolean   @default(true)
+  created_at    DateTime  @default(now())
+
+  @@index([tenant_id, actif])
+  @@map("sara_article")
+}
