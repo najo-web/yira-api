@@ -1,22 +1,23 @@
 ﻿{
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
+    "module": "NodeNext",          /* CORRIGÉ : Aligné avec moduleResolution */
+    "moduleResolution": "NodeNext", /* Conservé */
+    "target": "ES2021",
+    "outDir": "./dist",
+    "sourceMap": true,
     "declaration": true,
+    "incremental": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2021",
-    "sourceMap": true,
-    "outDir": "./dist",
-    "incremental": true,
-    "skipLibCheck": true,
-    "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
+    "strict": true, 
+    "skipLibCheck": true,
     "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
-  }
+    "strictBindCallApply": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "exclude": ["node_modules", "dist"]
 }
