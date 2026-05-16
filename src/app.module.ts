@@ -11,6 +11,7 @@ import { AssessmentModule } from './modules/assessment/assessment.module';
 import { UssdModule } from './modules/ussd/ussd.module';
 import { FreemiumModule } from './modules/freemium/freemium.module';
 import { CoreConfigModule } from './core-config/core-config.module';
+import { ModerationModule } from './modules/moderation/moderation.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CoreConfigModule } from './core-config/core-config.module';
     UssdModule,
     ScheduleModule.forRoot(),
     QuizModule,
+    ModerationModule,
   ],
 })
 export class AppModule {}
