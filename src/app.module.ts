@@ -1,3 +1,5 @@
+import { ScheduleModule } from '@nestjs/schedule';
+import { QuizModule } from './modules/quiz/quiz.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
@@ -22,6 +24,8 @@ import { CoreConfigModule } from './core-config/core-config.module';
     OpModule,
     AssessmentModule,
     UssdModule,
+    ScheduleModule.forRoot(),
+    QuizModule,
   ],
 })
 export class AppModule {}

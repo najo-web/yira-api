@@ -34,6 +34,12 @@ model YiraGameQuestion {
   explication  String?
   difficulte   Int       @default(1)
   actif        Boolean   @default(true)
+  moderation_statut    String    @default("EN_ATTENTE")
+  modere_par           String?
+  modere_at            DateTime?
+  correction_manuelle  String?
+  motif_rejet          String?
+  moderateur_id        String?
   genere_at    DateTime  @default(now())
   expire_at    DateTime?
   created_at   DateTime  @default(now())
