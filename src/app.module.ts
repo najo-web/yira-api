@@ -14,6 +14,7 @@ import { CoreConfigModule } from './core-config/core-config.module';
 import { ModerationModule } from './modules/moderation/moderation.module';
 import { SaraModule } from './modules/sara/sara.module';
 import { SignerModule } from './modules/signer/signer.module';
+import { CommandModule } from './modules/command/command.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { SignerModule } from './modules/signer/signer.module';
     ModerationModule,
     SaraModule,
     SignerModule,
+    CommandModule,
   ],
 })
 export class AppModule {}
