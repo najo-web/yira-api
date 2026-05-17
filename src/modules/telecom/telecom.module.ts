@@ -1,12 +1,13 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TelecomService } from './telecom.service';
+import { TelecomController } from './telecom.controller';
 import { AfricasTalkingProvider } from './providers/africas-talking.provider';
 
-@Global()
 @Module({
-  imports:   [ConfigModule],
-  providers: [AfricasTalkingProvider, TelecomService],
-  exports:   [TelecomService],
+  imports:     [ConfigModule],
+  providers:   [TelecomService, AfricasTalkingProvider],
+  controllers: [TelecomController],
+  exports:     [TelecomService],
 })
 export class TelecomModule {}
