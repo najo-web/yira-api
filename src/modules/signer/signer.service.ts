@@ -1,18 +1,14 @@
 // =============================================================================
 // YIRA V3.0 — SignerService
 // Niveau 4 (N4) — Carnet épargne Signer-Signer + Crédit bancaire
-// L3 §3.8 : Digitalisation tontinier CI — isolation base_signer
+// SMS templates depuis base_game.yira_sms_tpl (Zéro Hardcode)
 // =============================================================================
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient as PrismaSigner } from '.prisma/client-signer';
 import { TelecomService } from '../telecom/telecom.service';
-
-const MISE_MIN       = 500;
-const MISE_MAX       = 1_000_000;
-const JOURS_EPARGNE  = 30;
-const FRAIS_RETRAIT  = 0.01;
-const MAX_PAUSES     = 3;
+import { SmsTemplateService } from '../telecom/sms-template.service';
+import { YiraConfigService } from '../../core-config/yira-config.service';
 
 @Injectable()
 export class SignerService {
@@ -22,8 +18,10 @@ export class SignerService {
   });
 
   constructor(
-    private telecom: TelecomService,
-    private config:  ConfigService,
+    private telecom:  TelecomService,
+    private config:   ConfigService,
+    private smsTpl:   SmsTemplateService,
+    private yiraConf: YiraConfigService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -34,11 +32,13 @@ export class SignerService {
     type_projet?: string; collecteur_terrain_id?: string;
     collecteur_principal_id?: string; tenant_id?: string; kyc_niveau?: number;
   }): Promise<any> {
+    const tenantId = dto.tenant_id ?? 'CI';
+    const cfg      = await this.yiraConf.getSignerConfig(tenantId);
     const { telephone, mise_jour, projet, type_projet,
-      collecteur_terrain_id, collecteur_principal_id, tenant_id, kyc_niveau } = dto;
+      collecteur_terrain_id, collecteur_principal_id, kyc_niveau } = dto;
 
-    if (mise_jour < MISE_MIN) throw new BadRequestException('Mise minimum: ' + MISE_MIN + ' FCFA');
-    if (mise_jour > MISE_MAX) throw new BadRequestException('Mise maximum: ' + MISE_MAX + ' FCFA');
+    if (mise_jour < cfg.mise_min) throw new BadRequestException('Mise minimum: ' + cfg.mise_min + ' FCFA');
+    if (mise_jour > cfg.mise_max) throw new BadRequestException('Mise maximum: ' + cfg.mise_max + ' FCFA');
 
     const kycRequis = this.getKycRequis(mise_jour);
     if ((kyc_niveau ?? 0) < kycRequis) {
@@ -56,8 +56,8 @@ export class SignerService {
     });
     if (carnetActif) throw new BadRequestException('Carnet actif existant — terminez-le avant d en ouvrir un nouveau');
 
-    const ref    = 'CRN-' + new Date().getFullYear() + '-' + telephone.slice(-4) + '-' + Date.now().toString().slice(-4);
-    const debut  = new Date();
+    const ref   = 'CRN-' + new Date().getFullYear() + '-' + telephone.slice(-4) + '-' + Date.now().toString().slice(-4);
+    const debut = new Date();
     debut.setDate(debut.getDate() + 1);
     const fin = new Date(debut);
     fin.setDate(fin.getDate() + 31);
@@ -69,8 +69,7 @@ export class SignerService {
         type_projet: type_projet ?? 'AUTRE', statut: 'OUVERT',
         collecteur_terrain_id: collecteur_terrain_id ?? null,
         collecteur_principal_id: collecteur_principal_id ?? null,
-        tenant_id: tenant_id ?? null,
-        kyc_niveau: kyc_niveau ?? 0,
+        tenant_id: tenantId, kyc_niveau: kyc_niveau ?? 0,
         date_debut: debut, date_fin_prevue: fin,
       },
     });
@@ -82,13 +81,17 @@ export class SignerService {
       });
     }
 
-    const smsMsg = 'YIRA Signer-Signer: Carnet ouvert! Ref: ' + ref +
-      '\nMise: ' + this.fmt(mise_jour) + ' FCFA/jour' +
-      '\nDuree: 31 jours · Epargne max: ' + this.fmt(mise_jour * 30) + ' FCFA' +
-      (projet ? '\nProjet: ' + projet : '') +
-      '\n1er rappel demain 7h30.';
-
+    // SMS depuis template base_game (Zéro Hardcode)
+    const cfgPays = await this.yiraConf.getConfig(tenantId);
+    const smsMsg  = await this.smsTpl.obtenir('SIGNER_OUVERTURE', {
+      reference:   ref,
+      mise:        String(mise_jour),
+      epargne_max: String(mise_jour * cfg.jours_epargne),
+      projet:      projet ?? 'Non precise',
+      shortcode:   cfgPays.ussd_short_code,
+    }, tenantId);
     await this.telecom.sendVas(telephone, smsMsg);
+
     this.logger.log('[SIGNER] Carnet ouvert: ' + ref + ' | ' + telephone + ' | ' + mise_jour + 'F/j');
     return carnet;
   }
@@ -108,6 +111,7 @@ export class SignerService {
     if (carnet.statut === 'ABANDONNE') throw new BadRequestException('Carnet abandonne');
     if (carnet.en_pause)               throw new BadRequestException('Carnet en pause');
 
+    const cfg          = await this.yiraConf.getSignerConfig(carnet.tenant_id ?? 'CI');
     const prochainJour = carnet.jours_signes + 1;
 
     const dejaSign = await this.prisma.yiraSignerJour.findUnique({
@@ -115,7 +119,6 @@ export class SignerService {
     });
     if (dejaSign) throw new BadRequestException('Jour ' + prochainJour + ' deja signe');
 
-    // Vérifier wallet
     const walletPayeur = await this.prisma.yiraSignerWallet.findUnique({
       where: { merchant_id: carnet.merchant_id },
     });
@@ -123,56 +126,66 @@ export class SignerService {
       throw new BadRequestException('Solde insuffisant. Requis: ' + this.fmt(carnet.mise_jour) + ' FCFA. Disponible: ' + this.fmt(walletPayeur?.solde ?? 0) + ' FCFA');
     }
 
-    // Débiter wallet
     await this.prisma.yiraSignerWallet.update({
       where: { id: walletPayeur.id },
       data:  { solde: { decrement: carnet.mise_jour } },
     });
 
-    // Enregistrer le jour
     await this.prisma.yiraSignerJour.create({
       data: {
         carnet_id, numero_jour: prochainJour,
-        montant: carnet.mise_jour,
-        canal: canal ?? 'USSD_WALLET',
-        signe_par: signe_par ?? 'CLIENT',
+        montant:          carnet.mise_jour,
+        canal:            canal ?? 'USSD_WALLET',
+        signe_par:        signe_par ?? 'CLIENT',
         telephone_payeur: telephone_payeur ?? null,
-        reference_tx: reference_tx ?? null,
-        statut: 'SIGNE',
+        reference_tx:     reference_tx ?? null,
+        statut:           'SIGNE',
       },
     });
 
     const nouvelleEpargne = carnet.epargne_cumulee + carnet.mise_jour;
     const nouveauxJours   = carnet.jours_signes + 1;
-    const nouveauScore    = Math.round((nouveauxJours / Math.min(prochainJour, JOURS_EPARGNE)) * 100);
-    const estComplete     = nouveauxJours >= JOURS_EPARGNE;
+    const nouveauScore    = Math.round((nouveauxJours / Math.min(prochainJour, cfg.jours_epargne)) * 100);
+    const estComplete     = nouveauxJours >= cfg.jours_epargne;
 
     await this.prisma.yiraSignerCarnet.update({
       where: { id: carnet_id },
       data: {
-        jours_signes: nouveauxJours, jour_actuel: prochainJour,
-        epargne_cumulee: nouvelleEpargne, score_regularite: nouveauScore,
-        statut: estComplete ? 'COMPLETE' : 'EN_COURS',
+        jours_signes:    nouveauxJours,
+        jour_actuel:     prochainJour,
+        epargne_cumulee: nouvelleEpargne,
+        score_regularite: nouveauScore,
+        statut:          estComplete ? 'COMPLETE' : 'EN_COURS',
         date_completion: estComplete ? new Date() : null,
       },
     });
 
-    const smsMsg = 'YIRA: Jour ' + prochainJour + ' signe!\nEpargne: ' + this.fmt(nouvelleEpargne) + ' FCFA\n' +
-      (JOURS_EPARGNE - nouveauxJours) + ' jours restants' +
-      (estComplete ? '\n\nFelicitations! Carnet complet. Dossier credit en cours.' : '');
-
+    // SMS depuis template (Zéro Hardcode)
+    const smsMsg = await this.smsTpl.obtenir('SIGNER_SIGNATURE', {
+      jour:           String(prochainJour),
+      epargne:        String(nouvelleEpargne),
+      jours_restants: String(cfg.jours_epargne - nouveauxJours),
+    }, carnet.tenant_id ?? 'CI');
     await this.telecom.sendVas(carnet.telephone, smsMsg);
 
     if (estComplete) await this.onCarnetComplete(carnet_id);
 
     this.logger.log('[SIGNER] Jour ' + prochainJour + ' signe | ' + carnet.reference);
-    return { jour: prochainJour, epargne: nouvelleEpargne, jours_restants: JOURS_EPARGNE - nouveauxJours, score: nouveauScore, complete: estComplete };
+    return {
+      jour:           prochainJour,
+      epargne:        nouvelleEpargne,
+      jours_restants: cfg.jours_epargne - nouveauxJours,
+      score:          nouveauScore,
+      complete:       estComplete,
+    };
   }
 
   // ---------------------------------------------------------------------------
   // RETRAIT ÉPARGNE
   // ---------------------------------------------------------------------------
   async retirerEpargne(telephone: string, montant: number): Promise<any> {
+    const tenantId = 'CI';
+    const cfg      = await this.yiraConf.getSignerConfig(tenantId);
     const merchant = await this.prisma.yiraMerchant.findUnique({ where: { telephone } });
     if (!merchant) throw new NotFoundException('Client introuvable');
 
@@ -180,9 +193,9 @@ export class SignerService {
       where: { merchant_id: merchant.id, statut: { in: ['EN_COURS', 'OUVERT'] } },
     });
     if (!carnet) throw new NotFoundException('Aucun carnet actif');
-    if (montant > carnet.epargne_cumulee) throw new BadRequestException('Montant superieur a l epargne disponible: ' + this.fmt(carnet.epargne_cumulee) + ' FCFA');
+    if (montant > carnet.epargne_cumulee) throw new BadRequestException('Montant superieur a l epargne: ' + this.fmt(carnet.epargne_cumulee) + ' FCFA');
 
-    const frais     = Math.ceil(montant * FRAIS_RETRAIT);
+    const frais      = Math.ceil(montant * (cfg.frais_retrait_pct / 100));
     const montantNet = montant - frais;
 
     await this.prisma.yiraSignerWallet.upsert({
@@ -196,7 +209,14 @@ export class SignerService {
       data:  { epargne_cumulee: { decrement: montant } },
     });
 
-    await this.telecom.sendVas(telephone, 'YIRA: Retrait ' + this.fmt(montantNet) + ' FCFA effectue (frais: ' + this.fmt(frais) + ' F).\nEpargne restante: ' + this.fmt(carnet.epargne_cumulee - montant) + ' FCFA.');
+    const cfgPays  = await this.yiraConf.getConfig(tenantId);
+    const smsRetrait = await this.smsTpl.obtenir('SARA_RETRAIT', {
+      montant:  String(montantNet),
+      frais:    String(frais),
+      solde:    String(carnet.epargne_cumulee - montant),
+    }, tenantId);
+    await this.telecom.sendVas(telephone, smsRetrait);
+
     return { montant, frais, montant_net: montantNet, epargne_restante: carnet.epargne_cumulee - montant };
   }
 
@@ -206,7 +226,9 @@ export class SignerService {
   async pauseCarnet(carnet_id: string, jours = 3): Promise<any> {
     const carnet = await this.prisma.yiraSignerCarnet.findUnique({ where: { id: carnet_id } });
     if (!carnet) throw new NotFoundException('Carnet introuvable');
-    if (carnet.nb_pauses >= MAX_PAUSES) throw new BadRequestException('Maximum ' + MAX_PAUSES + ' pauses autorisees');
+
+    const cfg = await this.yiraConf.getSignerConfig(carnet.tenant_id ?? 'CI');
+    if (carnet.nb_pauses >= cfg.max_pauses) throw new BadRequestException('Maximum ' + cfg.max_pauses + ' pauses autorisees');
 
     const fin_pause = new Date();
     fin_pause.setDate(fin_pause.getDate() + jours);
@@ -216,12 +238,19 @@ export class SignerService {
       data:  { en_pause: true, pause_fin: fin_pause, nb_pauses: { increment: 1 }, statut: 'PAUSE' },
     });
 
-    await this.telecom.sendVas(carnet.telephone, 'YIRA: Pause ' + jours + ' jours accordee. Reprise auto le ' + fin_pause.toLocaleDateString('fr-CI') + '. Pauses restantes: ' + (MAX_PAUSES - carnet.nb_pauses - 1));
-    return { pause_fin: fin_pause, pauses_restantes: MAX_PAUSES - carnet.nb_pauses - 1 };
+    const cfgPays   = await this.yiraConf.getConfig(carnet.tenant_id ?? 'CI');
+    const smsPause  = await this.smsTpl.obtenir('SIGNER_RAPPEL', {
+      reference: carnet.reference,
+      mise:      String(carnet.mise_jour),
+      shortcode: cfgPays.ussd_short_code,
+    }, carnet.tenant_id ?? 'CI');
+    await this.telecom.sendVas(carnet.telephone, smsPause);
+
+    return { pause_fin: fin_pause, pauses_restantes: cfg.max_pauses - carnet.nb_pauses - 1 };
   }
 
   // ---------------------------------------------------------------------------
-  // CARNET COMPLÉTÉ — Commission collecteur + Dossier crédit
+  // CARNET COMPLÉTÉ
   // ---------------------------------------------------------------------------
   private async onCarnetComplete(carnet_id: string): Promise<void> {
     const carnet = await this.prisma.yiraSignerCarnet.findUnique({
@@ -230,7 +259,6 @@ export class SignerService {
     });
     if (!carnet) return;
 
-    // Commission collecteur terrain (mise du jour 31)
     if (carnet.collecteur_terrain_id && carnet.collecteur_terrain) {
       await this.prisma.yiraSignerWallet.upsert({
         where:  { merchant_id: carnet.collecteur_terrain_id },
@@ -238,7 +266,6 @@ export class SignerService {
         update: { solde: { increment: carnet.mise_jour } },
       });
 
-      // Reversement principal (25%)
       if (carnet.collecteur_principal_id && carnet.collecteur_principal) {
         const reversement = Math.round(carnet.mise_jour * (carnet.collecteur_principal.reversement_pct / 100));
         await this.prisma.yiraSignerWallet.upsert({
@@ -246,14 +273,24 @@ export class SignerService {
           create: { merchant_id: carnet.collecteur_principal_id, solde: reversement },
           update: { solde: { increment: reversement } },
         });
-        await this.telecom.sendVas(carnet.collecteur_terrain.telephone, 'YIRA: Commission Jour 31 recue! Carnet ' + carnet.reference + ': +' + this.fmt(carnet.mise_jour) + ' FCFA. Net: +' + this.fmt(carnet.mise_jour - reversement) + ' FCFA');
-      }
 
+        const smsCommission = await this.smsTpl.obtenir('SIGNER_COMMISSION', {
+          reference:  carnet.reference,
+          commission: String(carnet.mise_jour - reversement),
+        }, carnet.tenant_id ?? 'CI');
+        await this.telecom.sendVas(carnet.collecteur_terrain.telephone, smsCommission);
+      }
       await this.prisma.yiraSignerCarnet.update({ where: { id: carnet_id }, data: { commission_versee: true } });
     }
 
     await this.genererDossierCredit(carnet_id);
-    await this.telecom.sendVas(carnet.telephone, 'YIRA: Felicitations! Carnet ' + carnet.reference + ' complet!\nEpargne: ' + this.fmt(carnet.epargne_cumulee) + ' FCFA\nDossier credit en cours. Reponse sous 24-48h.');
+
+    const smsComplete = await this.smsTpl.obtenir('SIGNER_COMPLETE', {
+      reference: carnet.reference,
+      epargne:   String(carnet.epargne_cumulee),
+    }, carnet.tenant_id ?? 'CI');
+    await this.telecom.sendVas(carnet.telephone, smsComplete);
+
     this.logger.log('[SIGNER] Carnet complete: ' + carnet.reference);
   }
 
@@ -264,25 +301,26 @@ export class SignerService {
     const carnet = await this.prisma.yiraSignerCarnet.findUnique({ where: { id: carnet_id } });
     if (!carnet || !carnet.tenant_id) return null;
 
+    const cfg              = await this.yiraConf.getSignerConfig(carnet.tenant_id);
     const carnetsCompletes = await this.prisma.yiraSignerCarnet.count({
       where: { merchant_id: carnet.merchant_id, statut: 'COMPLETE' },
     });
 
-    const merchant      = await this.prisma.yiraMerchant.findUnique({ where: { id: carnet.merchant_id } });
+    const merchant       = await this.prisma.yiraMerchant.findUnique({ where: { id: carnet.merchant_id } });
     const anciennetJours = merchant ? Math.round((Date.now() - merchant.created_at.getTime()) / 86400000) : 0;
-    const regularite    = (carnet.jours_signes / JOURS_EPARGNE) * 100;
+    const regularite     = (carnet.jours_signes / cfg.jours_epargne) * 100;
 
     let score = 0;
     score += Math.min(35, (regularite / 100) * 35);
     score += Math.min(20, carnetsCompletes * 10);
-    score += Math.min(25, (carnet.epargne_cumulee / (carnet.mise_jour * 30)) * 25);
+    score += Math.min(25, (carnet.epargne_cumulee / (carnet.mise_jour * cfg.jours_epargne)) * 25);
     score += carnet.kyc_niveau >= 1 ? 10 : 0;
     score += Math.min(10, (anciennetJours / 90) * 10);
     score  = Math.min(100, Math.round(score));
 
     const niveau        = score > 75 ? 'PREMIUM' : score > 50 ? 'CONFIRME' : score > 20 ? 'INTERMEDIAIRE' : 'DEBUTANT';
-    const multiplicateur = score >= 80 ? 5 : score >= 60 ? 3 : 2;
-    const montantMax    = Math.min(2_000_000, carnet.epargne_cumulee * multiplicateur);
+    const multiplicateur = score >= 80 ? cfg.multiplicateur_or : score >= 60 ? cfg.multiplicateur_argent : cfg.multiplicateur_bronze;
+    const montantMax    = Math.min(2000000, carnet.epargne_cumulee * multiplicateur);
     const reco          = score >= 75 ? 'ELIGIBLE' : score >= 50 ? 'ELIGIBLE_AVEC_GARANTIE' : 'NON_ELIGIBLE';
 
     const dossier = await this.prisma.yiraSignerDossierCredit.upsert({
@@ -290,13 +328,17 @@ export class SignerService {
       create: {
         carnet_id, merchant_id: carnet.merchant_id,
         tenant_id: carnet.tenant_id, telephone: carnet.telephone,
-        carnets_completes: carnetsCompletes,
-        jours_signes_total: carnet.jours_signes, jours_possibles: JOURS_EPARGNE,
-        regularite_pct: regularite, epargne_totale: carnet.epargne_cumulee,
-        capacite_mensuelle: carnet.mise_jour * 30,
-        canal_dominant: carnet.canal_dominant, kyc_niveau: carnet.kyc_niveau,
-        anciennete_jours: anciennetJours, score_credit: score,
-        niveau_credit: niveau, montant_max_suggere: montantMax,
+        carnets_completes:  carnetsCompletes,
+        jours_signes_total: carnet.jours_signes,
+        jours_possibles:    cfg.jours_epargne,
+        regularite_pct:     regularite,
+        epargne_totale:     carnet.epargne_cumulee,
+        capacite_mensuelle: carnet.mise_jour * cfg.jours_epargne,
+        canal_dominant:     carnet.canal_dominant,
+        kyc_niveau:         carnet.kyc_niveau,
+        anciennete_jours:   anciennetJours,
+        score_credit:       score, niveau_credit: niveau,
+        montant_max_suggere: montantMax,
         multiplicateur, recommandation: reco,
         projet: carnet.projet, type_projet: carnet.type_projet,
         statut: 'ENVOYE_BANQUE',

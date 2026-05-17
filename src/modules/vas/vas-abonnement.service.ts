@@ -2,12 +2,15 @@
 // YIRA V3.0 — VasAbonnementService
 // Niveau 4 (N4) — Gestion abonnements VAS + facturation quotidienne
 // L3 §4.2 : Conformité ARTCI — double opt-in, STOP < 5s, journal 30j
+// SMS templates depuis base_game.yira_sms_tpl (Zéro Hardcode)
 // =============================================================================
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Pool } from 'pg';
 import { ConfigService } from '@nestjs/config';
 import { TelecomService } from '../telecom/telecom.service';
+import { SmsTemplateService } from '../telecom/sms-template.service';
+import { YiraConfigService } from '../../core-config/yira-config.service';
 
 export interface OptInResult {
   success:      boolean;
@@ -34,13 +37,15 @@ export interface FacturationResult {
 @Injectable()
 export class VasAbonnementService implements OnModuleInit {
   private readonly logger = new Logger(VasAbonnementService.name);
-  private pool!: Pool;
+  private pool!:     Pool;
   private poolCore!: Pool;
   private ready = false;
 
   constructor(
-    private config:  ConfigService,
-    private telecom: TelecomService,
+    private config:   ConfigService,
+    private telecom:  TelecomService,
+    private smsTpl:   SmsTemplateService,
+    private yiraConf: YiraConfigService,
   ) {}
 
   async onModuleInit() {
@@ -63,7 +68,6 @@ export class VasAbonnementService implements OnModuleInit {
     if (!this.ready) return { success: false, message: 'Service indisponible', service_code: serviceCode, telephone, statut: 'ERREUR' };
 
     try {
-      // Récupérer les infos du service depuis base_core
       const serviceInfo = await this.getServiceInfo(serviceCode, tenantId);
       if (!serviceInfo) {
         return { success: false, message: 'Service ' + serviceCode + ' introuvable', service_code: serviceCode, telephone, statut: 'ERREUR' };
@@ -80,40 +84,33 @@ export class VasAbonnementService implements OnModuleInit {
         return { success: true, message: 'Vous etes deja abonne a ' + serviceCode, service_code: serviceCode, telephone, statut: 'DEJA_ABONNE' };
       }
 
-      // Créer ou réactiver l'abonnement
-      // Vérifier si abonnement existe
-      const existCheck = await this.pool.query(`
-        SELECT id, statut FROM yira_souscription_vas
-        WHERE user_id = $1 AND service_code = $2 AND tenant_id = $3
-        LIMIT 1
-      `, [telephone, serviceCode, tenantId]);
-
-      if (existCheck.rows.length > 0) {
-        if (existCheck.rows[0].statut === 'ACTIF') {
-          return { success: true, message: 'Vous etes deja abonne a ' + serviceCode, service_code: serviceCode, telephone, statut: 'DEJA_ABONNE' };
-        }
-        // Réactiver
+      // Créer ou réactiver
+      if (existing.rows.length > 0) {
         await this.pool.query(`
           UPDATE yira_souscription_vas
           SET statut = 'ACTIF', opt_in_at = NOW(), opt_out_at = NULL
           WHERE user_id = $1 AND service_code = $2 AND tenant_id = $3
         `, [telephone, serviceCode, tenantId]);
       } else {
-        // Nouvel abonnement
         await this.pool.query(`
           INSERT INTO yira_souscription_vas (id, user_id, tenant_id, service_code, statut, opt_in_at)
           VALUES (gen_random_uuid()::text, $1, $2, $3, 'ACTIF', NOW())
         `, [telephone, tenantId, serviceCode]);
       }
 
-      // Journaliser dans yira_journal_vas (ARTCI Art. 4.1)
       await this.journaliserVas(telephone, serviceCode, 'OPT_IN', 0, tenantId);
 
-      // SMS de confirmation double opt-in (ARTCI obligatoire)
-      const tarif = serviceInfo.prix ?? 50;
-      const smsConfirm = 'YIRA: Abonnement ' + serviceCode + ' confirme! ' + tarif + ' FCFA/jour debite automatiquement. Pour arreter: envoyez STOP ' + serviceCode + ' au ' + (this.config.get('USSD_SHORTCODE') ?? '*7572#');
+      // SMS confirmation depuis template base_game (Zéro Hardcode)
+      const cfg = await this.yiraConf.getConfig(tenantId);
+      const smsConfirm = await this.smsTpl.obtenir('OPT_IN', {
+        service_nom:  serviceInfo.service_name ?? serviceCode,
+        service_code: serviceCode,
+        tarif:        String(serviceInfo.prix ?? cfg.vas_tarif_groupe_a),
+        shortcode:    cfg.ussd_short_code,
+      }, tenantId);
       await this.telecom.sendVas(telephone, smsConfirm);
 
+      const tarif = serviceInfo.prix ?? cfg.vas_tarif_groupe_a;
       this.logger.log('[VAS] OPT-IN: ' + telephone + ' → ' + serviceCode + ' (' + tarif + ' FCFA/j)');
       return {
         success:      true,
@@ -133,7 +130,6 @@ export class VasAbonnementService implements OnModuleInit {
   // ---------------------------------------------------------------------------
   async optOut(telephone: string, serviceCode: string, tenantId = 'CI'): Promise<OptOutResult> {
     const debut = Date.now();
-
     try {
       await this.pool.query(`
         UPDATE yira_souscription_vas
@@ -143,18 +139,13 @@ export class VasAbonnementService implements OnModuleInit {
 
       await this.journaliserVas(telephone, serviceCode, 'OPT_OUT', 0, tenantId);
 
-      // SMS confirmation STOP (ARTCI obligatoire)
-      await this.telecom.sendVas(telephone, 'YIRA: Desabonnement ' + serviceCode + ' confirme. Aucun debit ne sera effectue. Merci!');
+      // SMS confirmation depuis template (Zéro Hardcode)
+      const smsStop = await this.smsTpl.obtenir('OPT_OUT', { service_code: serviceCode }, tenantId);
+      await this.telecom.sendVas(telephone, smsStop);
 
       const delai = Date.now() - debut;
       this.logger.log('[VAS] OPT-OUT: ' + telephone + ' → ' + serviceCode + ' | ' + delai + 'ms');
-
-      return {
-        success:      true,
-        message:      'Desabonnement ' + serviceCode + ' confirme.',
-        service_code: serviceCode,
-        delai_ms:     delai,
-      };
+      return { success: true, message: 'Desabonnement ' + serviceCode + ' confirme.', service_code: serviceCode, delai_ms: delai };
     } catch (e: any) {
       this.logger.error('[VAS] Erreur opt-out: ' + e.message);
       return { success: false, message: 'Erreur technique', service_code: serviceCode, delai_ms: Date.now() - debut };
@@ -162,30 +153,25 @@ export class VasAbonnementService implements OnModuleInit {
   }
 
   // ---------------------------------------------------------------------------
-  // CRON 06h00 — Facturation quotidienne (L2 §3.4)
+  // CRON 06h00 — Facturation quotidienne
   // ---------------------------------------------------------------------------
   @Cron('0 6 * * *', { timeZone: 'Africa/Abidjan' })
   async facturerQuotidien(): Promise<void> {
-    this.logger.log('[VAS] CRON 06h00 — Facturation quotidienne démarrage');
+    this.logger.log('[VAS] CRON 06h00 — Facturation quotidienne');
     if (!this.ready) return;
-
     try {
       const abonnes = await this.pool.query(`
-        SELECT s.user_id, s.service_code, s.tenant_id
-        FROM yira_souscription_vas s
-        WHERE s.statut = 'ACTIF'
-        ORDER BY s.service_code
+        SELECT user_id, service_code, tenant_id
+        FROM yira_souscription_vas
+        WHERE statut = 'ACTIF'
+        ORDER BY service_code
       `);
-
       this.logger.log('[VAS] ' + abonnes.rows.length + ' abonnes a facturer');
-
       let succes = 0, echecs = 0;
-      for (const abonne of abonnes.rows) {
-        const result = await this.facturerAbonne(abonne.user_id, abonne.service_code, abonne.tenant_id);
-        if (result.statut === 'SUCCES') succes++;
-        else echecs++;
+      for (const a of abonnes.rows) {
+        const result = await this.facturerAbonne(a.user_id, a.service_code, a.tenant_id);
+        result.statut === 'SUCCES' ? succes++ : echecs++;
       }
-
       this.logger.log('[VAS] Facturation terminee — ' + succes + ' succes, ' + echecs + ' echecs');
     } catch (e: any) {
       this.logger.error('[VAS] Erreur facturation cron: ' + e.message);
@@ -198,11 +184,9 @@ export class VasAbonnementService implements OnModuleInit {
   async facturerAbonne(telephone: string, serviceCode: string, tenantId = 'CI'): Promise<FacturationResult> {
     try {
       const serviceInfo = await this.getServiceInfo(serviceCode, tenantId);
-      const montant     = serviceInfo?.prix ?? 50;
-
-      // En production : appel Payment Provider pour débiter
-      // En dev : simulation du débit
-      const success = true; // → remplacer par PaymentProvider.debiter()
+      const cfg         = await this.yiraConf.getConfig(tenantId);
+      const montant     = serviceInfo?.prix ?? cfg.vas_tarif_groupe_a;
+      const success     = true; // → remplacer par PaymentProvider.debiter()
 
       if (success) {
         await this.journaliserVas(telephone, serviceCode, 'FACTURATION', montant, tenantId);
@@ -210,10 +194,8 @@ export class VasAbonnementService implements OnModuleInit {
         return { telephone, service_code: serviceCode, montant, statut: 'SUCCES' };
       }
 
-      // Désabonnement automatique si solde insuffisant 3 jours consécutifs
       await this.optOut(telephone, serviceCode, tenantId);
       return { telephone, service_code: serviceCode, montant: 0, statut: 'SOLDE_INSUFFISANT' };
-
     } catch (e: any) {
       this.logger.error('[VAS] Erreur facturation: ' + telephone + ' | ' + e.message);
       return { telephone, service_code: serviceCode, montant: 0, statut: 'ECHEC' };
@@ -221,7 +203,7 @@ export class VasAbonnementService implements OnModuleInit {
   }
 
   // ---------------------------------------------------------------------------
-  // VÉRIFIER STATUT ABONNEMENT
+  // VÉRIFIER STATUT
   // ---------------------------------------------------------------------------
   async verifierStatut(telephone: string, serviceCode: string, tenantId = 'CI'): Promise<any> {
     if (!this.ready) return { abonne: false };
@@ -232,26 +214,19 @@ export class VasAbonnementService implements OnModuleInit {
         WHERE user_id = $1 AND service_code = $2 AND tenant_id = $3
         LIMIT 1
       `, [telephone, serviceCode, tenantId]);
-
       if (res.rows.length === 0) return { abonne: false, statut: 'JAMAIS_ABONNE' };
-      return {
-        abonne:     res.rows[0].statut === 'ACTIF',
-        statut:     res.rows[0].statut,
-        opt_in_at:  res.rows[0].opt_in_at,
-        opt_out_at: res.rows[0].opt_out_at,
-      };
+      return { abonne: res.rows[0].statut === 'ACTIF', statut: res.rows[0].statut, opt_in_at: res.rows[0].opt_in_at, opt_out_at: res.rows[0].opt_out_at };
     } catch { return { abonne: false }; }
   }
 
   // ---------------------------------------------------------------------------
-  // STATS ABONNEMENTS
+  // STATS
   // ---------------------------------------------------------------------------
   async stats(tenantId = 'CI'): Promise<any> {
     if (!this.ready) return {};
     try {
       const res = await this.pool.query(`
-        SELECT
-          service_code,
+        SELECT service_code,
           COUNT(*) FILTER (WHERE statut = 'ACTIF')   as actifs,
           COUNT(*) FILTER (WHERE statut = 'INACTIF') as inactifs,
           COUNT(*) as total
@@ -277,8 +252,8 @@ export class VasAbonnementService implements OnModuleInit {
         LIMIT 1
       `, [tenantId, serviceCode]);
       if (res[1]?.rows?.length > 0) {
-        const row   = res[1].rows[0];
-        const prix  = row.pricing_by_tenant?.[tenantId] ?? 50;
+        const row  = res[1].rows[0];
+        const prix = row.pricing_by_tenant?.[tenantId] ?? 50;
         return { ...row, prix };
       }
     } catch {}
