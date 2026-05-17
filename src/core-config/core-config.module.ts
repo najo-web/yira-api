@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { PrismaCoreService } from './prisma-core.service';
 import { CoreConfigService } from './core-config.service';
+import { YiraConfigService } from './yira-config.service';
 
 @Global()
 @Module({
@@ -17,7 +18,7 @@ import { CoreConfigService } from './core-config.service';
       }),
     }),
   ],
-  providers: [PrismaCoreService, CoreConfigService],
-  exports: [CoreConfigService, CacheModule],
+  providers: [PrismaCoreService, CoreConfigService, YiraConfigService],
+  exports: [CoreConfigService, YiraConfigService, CacheModule],
 })
 export class CoreConfigModule {}

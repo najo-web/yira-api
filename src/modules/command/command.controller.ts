@@ -1,11 +1,15 @@
 import { Controller, Get, Post, Param, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ArtciReportingService } from './artci-reporting.service';
+import { YiraConfigService } from '../../core-config/yira-config.service';
 import { Public } from '../../auth/decorators';
 
 @Controller('command')
 export class CommandController {
-  constructor(private artci: ArtciReportingService) {}
+  constructor(
+    private artci:      ArtciReportingService,
+    private yiraConfig: YiraConfigService,
+  ) {}
 
   @Get('kpis')
   @Public()
@@ -33,6 +37,19 @@ export class CommandController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=rapport-artci-' + trimestre + '-' + annee + '.csv');
     res.send(csv);
+  }
+
+  @Get('config/:tenant')
+  @Public()
+  async config(@Param('tenant') tenant: string) {
+    return this.yiraConfig.getConfig(tenant);
+  }
+
+  @Post('config/:tenant/invalider')
+  @Public()
+  async invaliderCache(@Param('tenant') tenant: string) {
+    await this.yiraConfig.invaliderCache(tenant);
+    return { message: 'Cache invalide pour ' + tenant };
   }
 
   @Get('ping')
