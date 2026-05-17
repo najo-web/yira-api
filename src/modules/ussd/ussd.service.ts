@@ -1,8 +1,16 @@
+// =============================================================================
+// YIRA V3.0 — UssdService
+// Niveau 4 (N4) — Moteur USSD + Code de Reprise L2 §3.2
+// Menus depuis base_core (Zéro Hardcode)
+// Code de reprise 6 chars — envoyé par SMS à chaque nouvelle session
+// =============================================================================
 import { Injectable, Logger } from '@nestjs/common';
 import { IaService } from '../../ia/ia.service';
 import { UssdSessionService, UssdSession } from './ussd-session.service';
 import { UssdVasRouterService } from './ussd-vas-router.service';
 import { CoreConfigService } from '../../core-config/core-config.service';
+import { TelecomService } from '../telecom/telecom.service';
+import { SmsTemplateService } from '../telecom/sms-template.service';
 
 @Injectable()
 export class UssdService {
@@ -13,6 +21,8 @@ export class UssdService {
     private sessionService: UssdSessionService,
     private vasRouter:      UssdVasRouterService,
     private coreConfig:     CoreConfigService,
+    private telecom:        TelecomService,
+    private smsTpl:         SmsTemplateService,
   ) {}
 
   async traiter(params: {
@@ -25,13 +35,18 @@ export class UssdService {
 
     this.logger.log('[USSD] ' + tel + ' -> "' + text + '"');
 
-    let session = await this.sessionService.get(sessionId);
+    let session   = await this.sessionService.get(sessionId);
+    const isNouvelle = !session;
+
     if (!session) {
       session = {
         telephone: tel, tenant_id,
         etape: 'MENU', qNum: 0,
         reponses: [], data: {}, createdAt: Date.now(),
       };
+
+      // Code de reprise L2 §3.2 — envoyé par SMS à chaque nouvelle session
+      this.envoyerCodeReprise(phoneNumber, tenant_id).catch(() => {});
     }
 
     const choix   = text === '' ? [] : text.split('*');
@@ -47,14 +62,36 @@ export class UssdService {
     return tronque;
   }
 
-  // -------------------------------------------------------------------------
-  // Charge les menus depuis base_core — Zéro Hardcode
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // CODE DE REPRISE — L2 §3.2
+  // Code 6 chars alphanumérique — valable 30 jours — stocké Redis
+  // ---------------------------------------------------------------------------
+  private async envoyerCodeReprise(telephone: string, tenantId: string): Promise<void> {
+    try {
+      const code = this.genererCodeReprise();
+      // Stocker dans Redis avec TTL 30 jours
+      await this.sessionService.setReprise(telephone, code);
+      // Envoyer par SMS depuis template base_game
+      const msg = await this.smsTpl.obtenir('CODE_REPRISE', { code }, tenantId);
+      await this.telecom.sendVas(telephone, msg);
+      this.logger.log('[USSD] Code reprise envoye → ' + telephone + ' | ' + code);
+    } catch (e: any) {
+      this.logger.warn('[USSD] Erreur code reprise: ' + e.message);
+    }
+  }
+
+  private genererCodeReprise(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Menus depuis base_core — Zéro Hardcode
+  // ---------------------------------------------------------------------------
   private async buildMenuPrincipal(tenantId: string): Promise<string> {
     try {
-      const refs = await this.coreConfig.getReferentials(tenantId, 'METIER');
-      const get  = (code: string) => refs.find(r => r.refCode === code)?.labelFr ?? code;
-
+      const refs    = await this.coreConfig.getReferentials(tenantId, 'METIER');
+      const get     = (code: string) => refs.find(r => r.refCode === code)?.labelFr ?? code;
       const accueil = get('MENU_ACCUEIL');
       const p1      = get('PORTE_1');
       const p2      = get('PORTE_2');
@@ -62,10 +99,8 @@ export class UssdService {
       const p4      = get('PORTE_4');
       const p5      = get('PORTE_5');
       const quitter = get('LABEL_QUITTER');
-
       return `CON ${accueil}\n1. ${p1}\n2. ${p2}\n3. ${p3}\n4. ${p4}\n5. ${p5}\n0. ${quitter}`;
     } catch {
-      // Fallback si base_core indisponible
       return 'CON YIRA Africa\n1. Apprendre\n2. Sante\n3. Argent\n4. Avenir\n5. SOS\n0. Quitter';
     }
   }
@@ -81,17 +116,10 @@ export class UssdService {
 
   private async buildMenuPorte(porteNum: string, tenantId: string): Promise<string> {
     try {
-      // Charge tous les services de la porte depuis base_core via CoreConfigService
-      const refs = await this.coreConfig.getReferentials(tenantId, 'METIER');
+      const refs    = await this.coreConfig.getReferentials(tenantId, 'METIER');
       const accueil = refs.find(r => r.refCode === 'PORTE_' + porteNum)?.labelFr ?? 'Menu ' + porteNum;
-
-      // Charge les services de cette porte depuis base_core
       const services = await this.loadServicesForPorte(porteNum, tenantId);
-
-      if (services.length === 0) {
-        return 'CON ' + accueil + '\nAucun service disponible\n0. Retour';
-      }
-
+      if (services.length === 0) return 'CON ' + accueil + '\nAucun service disponible\n0. Retour';
       let menu = 'CON ' + accueil;
       services.slice(0, 6).forEach((svc, idx) => {
         const prix = svc.prix > 0 ? ' (' + svc.prix + 'F/j)' : ' (Gratuit)';
@@ -105,19 +133,14 @@ export class UssdService {
   }
 
   private async loadServicesForPorte(porteNum: string, tenantId: string): Promise<Array<{code: string, nom: string, prix: number, path: string}>> {
-    // Charge depuis base_core les services dont ussd_path commence par porteNum*
     const allServices: Array<{code: string, nom: string, prix: number, path: string}> = [];
-
-    // On utilise les 9 sous-chemins possibles par porte
     for (let i = 1; i <= 11; i++) {
       const path = porteNum + '*' + i;
       try {
-        const svc = await this.coreConfig.getVasService(tenantId, this.pathToServiceCode(path));
+        const svc  = await this.coreConfig.getVasService(tenantId, this.pathToServiceCode(path));
         const prix = (svc.pricingByTenant as any)?.[tenantId]?.daily_fcfa ?? 0;
         allServices.push({ code: svc.serviceCode, nom: svc.serviceName, prix, path });
-      } catch {
-        break; // Plus de services dans cette porte
-      }
+      } catch { break; }
     }
     return allServices;
   }
@@ -147,34 +170,26 @@ export class UssdService {
   ): Promise<string> {
     const tenant = session.tenant_id;
 
-    // Menu principal
     if (choix.length === 0) {
       session.etape = 'MENU';
       return this.buildMenuPrincipal(tenant);
     }
 
-    // Portes 1-4 — sous-menus
     if (['1','2','3','4'].includes(choix[0])) {
       const porte = choix[0];
-
-      // Afficher le sous-menu de la porte
       if (choix.length === 1) {
         session.etape = 'PORTE_' + porte;
         return this.buildMenuPorte(porte, tenant);
       }
-
-      // Router vers le service VAS (porte + sous-choix)
-      const vasPath = porte + '*' + choix[1];
+      const vasPath  = porte + '*' + choix[1];
       const vasResult = await this.vasRouter.routerByPath(vasPath, session.telephone, session, choix);
       if (vasResult.handled) {
         session = vasResult.session;
         return vasResult.response;
       }
-
       return this.buildMenuPrincipal(tenant);
     }
 
-    // Porte 5 — SOS direct
     if (choix[0] === '5') {
       const vasResult = await this.vasRouter.routerByPath('5*1', session.telephone, session, choix);
       if (vasResult.handled) {
@@ -184,7 +199,6 @@ export class UssdService {
       return 'END SOS-YIRA\nAppel urgence: 185\nService 24h/24 gratuit';
     }
 
-    // Quitter
     if (choix[0] === '0') {
       await this.sessionService.delete(sessionId);
       const msg = await this.buildMsgAuRevoir(tenant);
