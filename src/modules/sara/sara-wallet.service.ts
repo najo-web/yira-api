@@ -1,12 +1,15 @@
 // =============================================================================
 // YIRA V3.0 — SaraWalletService
 // Niveau 4 (N4) — Wallet USSD Mobile Money + Tontine + SARA SCORE
-// L3 §3.7 : Données financières — transactions atomiques
+// Scores SARA depuis base_core via YiraConfigService (Zéro Hardcode)
+// SMS templates depuis base_game.yira_sms_tpl (Zéro Hardcode)
 // =============================================================================
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient as PrismaSara } from '.prisma/client-sara';
 import { TelecomService } from '../telecom/telecom.service';
+import { SmsTemplateService } from '../telecom/sms-template.service';
+import { YiraConfigService } from '../../core-config/yira-config.service';
 
 @Injectable()
 export class SaraWalletService {
@@ -16,8 +19,10 @@ export class SaraWalletService {
   });
 
   constructor(
-    private telecom: TelecomService,
-    private config:  ConfigService,
+    private telecom:  TelecomService,
+    private config:   ConfigService,
+    private smsTpl:   SmsTemplateService,
+    private yiraConf: YiraConfigService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -28,11 +33,10 @@ export class SaraWalletService {
       where: { user_id_tenant_id: { user_id: userId, tenant_id: tenantId } },
     });
     if (existing) return existing;
-
     const wallet = await this.prisma.saraWallet.create({
       data: { user_id: userId, tenant_id: tenantId, solde_fcfa: 0, solde_points: 0 },
     });
-    this.logger.log('[SARA] Wallet créé → ' + userId);
+    this.logger.log('[SARA] Wallet cree → ' + userId);
     return wallet;
   }
 
@@ -62,6 +66,16 @@ export class SaraWalletService {
     });
 
     await this.mettreAJourScore(userId, tenantId, 'DEPOT');
+
+    // SMS depuis template (Zéro Hardcode)
+    const smsDepot = await this.smsTpl.obtenir('SARA_DEPOT', {
+      montant:  String(montant),
+      provider,
+      solde:    String(wallet.solde_fcfa + montant),
+      score:    String((await this.obtenirScore(userId))?.score ?? 0),
+    }, tenantId);
+    await this.telecom.sendVas(userId, smsDepot);
+
     this.logger.log('[SARA] Depot ' + montant + 'F → ' + userId + ' via ' + provider);
     return transaction;
   }
@@ -71,10 +85,7 @@ export class SaraWalletService {
   // ---------------------------------------------------------------------------
   async retrait(userId: string, montant: number, provider: string, tenantId = 'CI'): Promise<any> {
     const wallet = await this.obtenirOuCreerWallet(userId, tenantId);
-
-    if (wallet.solde_fcfa < montant) {
-      throw new Error('Solde insuffisant — disponible: ' + wallet.solde_fcfa + ' FCFA');
-    }
+    if (wallet.solde_fcfa < montant) throw new Error('Solde insuffisant — disponible: ' + wallet.solde_fcfa + ' FCFA');
 
     const transaction = await this.prisma.saraTransaction.create({
       data: {
@@ -95,16 +106,25 @@ export class SaraWalletService {
       data:  { solde_fcfa: wallet.solde_fcfa - montant },
     });
 
+    // SMS depuis template (Zéro Hardcode)
+    const cfg = await this.yiraConf.getConfig(tenantId);
+    const frais = Math.ceil(montant * 0.01);
+    const smsRetrait = await this.smsTpl.obtenir('SARA_RETRAIT', {
+      montant:  String(montant - frais),
+      frais:    String(frais),
+      solde:    String(wallet.solde_fcfa - montant),
+    }, tenantId);
+    await this.telecom.sendVas(userId, smsRetrait);
+
     this.logger.log('[SARA] Retrait ' + montant + 'F → ' + userId);
     return transaction;
   }
 
   // ---------------------------------------------------------------------------
-  // Récompense Airtime (SARA SCORE 80+)
+  // Récompense Airtime
   // ---------------------------------------------------------------------------
   async recompenseAirtime(userId: string, telephone: string, montant: number, tenantId = 'CI'): Promise<any> {
     const wallet = await this.obtenirOuCreerWallet(userId, tenantId);
-
     const result = await this.telecom.sendAirtime(telephone, montant);
     const statut = result.success ? 'SUCCES' : 'ECHEC';
 
@@ -124,6 +144,12 @@ export class SaraWalletService {
 
     if (result.success) {
       await this.mettreAJourScore(userId, tenantId, 'RECOMPENSE');
+      const score = await this.obtenirScore(userId);
+      const smsRecomp = await this.smsTpl.obtenir('SARA_RECOMPENSE', {
+        montant: String(montant),
+        score:   String(score?.score ?? 0),
+      }, tenantId);
+      await this.telecom.sendVas(telephone, smsRecomp);
       this.logger.log('[SARA] Recompense airtime ' + montant + 'F → ' + telephone);
     }
 
@@ -158,20 +184,20 @@ export class SaraWalletService {
   }
 
   // ---------------------------------------------------------------------------
-  // SARA SCORE — Calcul et mise à jour
+  // SARA SCORE — Calcul depuis base_core (Zéro Hardcode)
   // ---------------------------------------------------------------------------
   async mettreAJourScore(userId: string, tenantId = 'CI', action: string): Promise<void> {
-    let score = await this.prisma.saraScore.findUnique({ where: { user_id: userId } });
-
+    const scores = await this.yiraConf.getSaraScores(tenantId);
     const points: Record<string, number> = {
-      DEPOT:       10,
-      RECOMPENSE:  20,
-      QUIZ_REPONDU: 5,
+      DEPOT:             scores.depot,
+      RECOMPENSE:        scores.recompense,
+      QUIZ_REPONDU:      scores.quiz,
       JOURS_CONSECUTIFS: 15,
-      TONTINE:     25,
+      TONTINE:           scores.tontine,
     };
 
-    const gain = points[action] ?? 0;
+    const gain  = points[action] ?? 0;
+    let score   = await this.prisma.saraScore.findUnique({ where: { user_id: userId } });
 
     if (!score) {
       score = await this.prisma.saraScore.create({
@@ -186,7 +212,7 @@ export class SaraWalletService {
       });
     }
 
-    this.logger.log('[SARA] Score mis a jour → ' + userId + ' | ' + score.score + ' pts | ' + score.niveau);
+    this.logger.log('[SARA] Score → ' + userId + ' | ' + score.score + ' pts | ' + score.niveau);
   }
 
   async obtenirScore(userId: string): Promise<any> {
