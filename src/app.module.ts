@@ -15,6 +15,7 @@ import { ModerationModule } from './modules/moderation/moderation.module';
 import { SaraModule } from './modules/sara/sara.module';
 import { SignerModule } from './modules/signer/signer.module';
 import { CommandModule } from './modules/command/command.module';
+import { VasModule } from './modules/vas/vas.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CommandModule } from './modules/command/command.module';
     SaraModule,
     SignerModule,
     CommandModule,
+    VasModule,
   ],
 })
 export class AppModule {}
