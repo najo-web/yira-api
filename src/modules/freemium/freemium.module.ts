@@ -1,12 +1,13 @@
-// ============================================================
-// YIRA — src/modules/freemium/freemium.module.ts
-// ============================================================
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { FreemiumService } from './freemium.service';
+import { FreemiumController } from './freemium.controller';
+import { TelecomModule } from '../telecom/telecom.module';
 
-@Global() // disponible partout sans réimporter
 @Module({
-  providers: [FreemiumService],
-  exports:   [FreemiumService],
+  imports:     [ConfigModule, TelecomModule],
+  providers:   [FreemiumService],
+  controllers: [FreemiumController],
+  exports:     [FreemiumService],
 })
 export class FreemiumModule {}
