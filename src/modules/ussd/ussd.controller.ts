@@ -1,82 +1,75 @@
 // =============================================================================
 // YIRA V3.0 — UssdController
-// Shortcode lu depuis base_core.country_config (Zéro Hardcode L2)
+// Swagger OpenAPI 3.1 (L3 §8.1)
 // =============================================================================
 import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { UssdService } from './ussd.service';
 import { Public } from '../../auth/decorators';
-import { Pool } from 'pg';
 
+@ApiTags('USSD')
 @Controller('ussd')
 export class UssdController {
-  private poolCore     = new Pool({ connectionString: process.env.DATABASE_URL_CORE });
-  private shortcodeCache: string | null = null;
-
   constructor(private ussd: UssdService) {}
 
-  // ---------------------------------------------------------------------------
-  // Lire shortcode depuis base_core (Zéro Hardcode)
-  // ---------------------------------------------------------------------------
-  private async getShortcode(): Promise<string> {
-    if (this.shortcodeCache) return this.shortcodeCache;
-    try {
-      const tenantId = process.env.NODE_ENV === 'production' ? 'CI' : 'NAJO_DEV';
-      const res = await this.poolCore.query(
-        `SELECT ussd_short_code FROM core.country_config WHERE tenant_id = $1`,
-        [tenantId],
-      );
-      const code = res.rows[0]?.ussd_short_code;
-      if (code) this.shortcodeCache = code;
-      return code ?? (process.env.NODE_ENV === 'production' ? '*7572#' : '*384*54077#');
-    } catch {
-      return process.env.NODE_ENV === 'production' ? '*7572#' : '*384*54077#';
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // POST /api/ussd — Callback AfricasTalking
-  // ---------------------------------------------------------------------------
   @Post()
   @Public()
-  async handleUssd(@Body() body: any) {
-    const shortcode = await this.getShortcode();
+  @ApiOperation({
+    summary:     'Webhook USSD AfricasTalking / LAM',
+    description: 'Point d\'entrée principal — reçoit les sessions USSD des opérateurs télécom. Format POST form-urlencoded conforme AT et LAM.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        sessionId:   { type: 'string', example: 'ATsession123', description: 'ID session opérateur' },
+        serviceCode: { type: 'string', example: '*384*54077#',  description: 'Code court USSD' },
+        phoneNumber: { type: 'string', example: '+2250708647166', description: 'Numéro appelant' },
+        text:        { type: 'string', example: '1*2',           description: 'Saisies cumulées' },
+        networkCode: { type: 'string', example: '63902',         description: 'Code réseau opérateur' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Réponse USSD — commence par CON (continue) ou END (termine)' })
+  async handleUssd(@Body() body: any): Promise<string> {
     return this.ussd.traiter({
-      sessionId:   body.sessionId,
-      serviceCode: body.serviceCode ?? shortcode,
-      phoneNumber: body.phoneNumber,
+      sessionId:   body.sessionId   ?? body.session_id ?? 'local',
+      phoneNumber: body.phoneNumber ?? body.phone_number ?? '',
+      serviceCode: body.serviceCode ?? body.service_code ?? '',
       text:        body.text ?? '',
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // GET /api/ussd/simuler — Test local
-  // ---------------------------------------------------------------------------
   @Get('simuler')
   @Public()
+  @ApiOperation({
+    summary:     'Simuler une session USSD (DEV)',
+    description: 'Endpoint de simulation pour les tests sans opérateur télécom réel.',
+  })
+  @ApiQuery({ name: 'tel',  required: true,  example: '+2250708647166', description: 'Numéro simulé' })
+  @ApiQuery({ name: 'text', required: false, example: '1*2',            description: 'Saisies cumulées' })
+  @ApiResponse({ status: 200, description: 'Réponse USSD simulée' })
   async simuler(
-    @Query('tel') tel = '+2250700000001',
-    @Query('text') text = '',
-  ) {
-    const shortcode = await this.getShortcode();
+    @Query('tel')  tel:  string,
+    @Query('text') text: string = '',
+  ): Promise<string> {
     return this.ussd.traiter({
       sessionId:   'sim-' + Date.now(),
-      serviceCode: shortcode,
       phoneNumber: tel,
+      serviceCode: process.env.USSD_SHORTCODE ?? '*384*54077#',
       text,
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // GET /api/ussd/ping
-  // ---------------------------------------------------------------------------
   @Get('ping')
   @Public()
-  async ping() {
-    const shortcode = await this.getShortcode();
+  @ApiOperation({ summary: 'Santé du module USSD', description: 'Vérifie que le moteur USSD est opérationnel.' })
+  @ApiResponse({ status: 200, description: 'Module opérationnel' })
+  ping() {
     return {
       module:    'YIRA-USSD',
       status:    '✅ opérationnel',
-      shortcode,
+      shortcode: process.env.USSD_SHORTCODE ?? '*384*54077#',
       env:       process.env.NODE_ENV ?? 'development',
     };
   }
