@@ -1,66 +1,74 @@
 ﻿// =============================================================================
 // YIRA V3.0 — QuizGeneratorService
-// Sprint 33 — ContentSourceService intégré (scraping CSP réel)
-// Niveau 4 (N4) — Génération quotidienne des questions VAS par 24 agents IA
-// L3 §5.1 : Cron 05h00 Africa/Abidjan
-// Filtre CQ-CI : score culturel ≥ 0.75 obligatoire
+// Sprint 34 — Types de questions multiples (L2 §5)
+// QCM_3, QCM_4, VRAI_FAUX, CALCUL, COMPLEMENT, SEQUENCE
+// Type piloté depuis base_core.yira_config_service.type_question (Zéro Hardcode)
 // =============================================================================
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
+import { Pool, PoolClient } from 'pg';
 import { CoreConfigService } from '../../core-config/core-config.service';
 import { TelecomService } from '../../modules/telecom/telecom.service';
 import { ContentSourceService } from './content-source/content-source.service';
 import { PrismaClient as PrismaGame } from '.prisma/client-game';
 
+export type TypeQuestion = 'QCM_3' | 'QCM_4' | 'VRAI_FAUX' | 'CALCUL' | 'COMPLEMENT' | 'SEQUENCE';
+
 export interface QuizQuestion {
-  serviceCode:  string;
-  agentName:    string;
-  question:     string;
-  optionA:      string;
-  optionB:      string;
-  optionC:      string;
-  bonneRep:     'A' | 'B' | 'C';
-  explication:  string;
-  difficulte:   number;
-  cqciScore:    number;
-  source_csp?:  string; // Nouvelle — source du fait utilisé
+  serviceCode:   string;
+  agentName:     string;
+  typeQuestion:  TypeQuestion;
+  question:      string;
+  optionA:       string;
+  optionB:       string;
+  optionC:       string;
+  optionD?:      string; // QCM_4 uniquement
+  bonneRep:      string; // A/B/C/D ou VRAI/FAUX ou la réponse calculée
+  explication:   string;
+  difficulte:    number;
+  cqciScore:     number;
+  source_csp?:   string;
 }
 
 @Injectable()
 export class QuizGeneratorService {
   private readonly logger   = new Logger(QuizGeneratorService.name);
   private readonly prisma   = new PrismaGame({ datasources: { db: { url: process.env.DATABASE_URL_GAME } } });
+  private poolCore!: Pool;
   private readonly tenantId = 'CI';
 
   private readonly AGENTS: Record<string, string> = {
-    ZOUGLOU:     'ZOUGLOU_AGENT',    CULTURE:  'CULTURE_AGENT',
-    SPORT:       'SPORT_AGENT',      PROVERBE: 'PROVERBE_AGENT',
-    QUIZIK:      'QUIZIK_AGENT',     CUISINE:  'CUISINE_AGENT',
-    EDU:         'EDU_AGENT',        ALPHA:    'ALPHA_AGENT',
-    HISTOIRE:    'HISTOIRE_AGENT',   PALU:     'PALU_AGENT',
-    DEPIST:      'DEPIST_AGENT',     MAMA:     'MAMA_AGENT',
-    VACCIN:      'VACCIN_AGENT',     NUTRI:    'NUTRI_AGENT',
-    HYGIENE:     'HYGIENE_AGENT',    EAU:      'EAU_AGENT',
-    CANCER:      'CANCER_AGENT',     ESPRIT:   'ESPRIT_AGENT',
-    HANDICAP:    'HANDICAP_AGENT',   AGRI:     'AGRI_AGENT',
-    METEO:       'METEO_AGENT',      FINANCE:  'FINANCE_AGENT',
-    MICRO:       'MICRO_AGENT',      ACTUQUIZ: 'ACTU_AGENT',
-    SECURITE:    'SECURITE_AGENT',   ORIENTATION: 'ORIENTATION_AGENT',
-    EMPLOI:      'EMPLOI_AGENT',     ROUTE:    'ROUTE_AGENT',
-    DROIT:       'DROIT_AGENT',      FEMME:    'FEMME_AGENT',
-    ELECTION:    'ELECTION_AGENT',   ARNAQUE:  'ARNAQUE_AGENT',
-    CONCOURS:    'CONCOURS_AGENT',   SENIOR:   'SENIOR_AGENT',
-    TRAVAIL:     'TRAVAIL_AGENT',    VOD:      'VOD_AGENT',
-    SOS:         'SOS_AGENT',
+    ZOUGLOU:  'ZOUGLOU_AGENT',  CULTURE:  'CULTURE_AGENT',
+    SPORT:    'SPORT_AGENT',    PROVERBE: 'PROVERBE_AGENT',
+    QUIZIK:   'QUIZIK_AGENT',   CUISINE:  'CUISINE_AGENT',
+    EDU:      'EDU_AGENT',      ALPHA:    'ALPHA_AGENT',
+    HISTOIRE: 'HISTOIRE_AGENT', PALU:     'PALU_AGENT',
+    DEPIST:   'DEPIST_AGENT',   MAMA:     'MAMA_AGENT',
+    VACCIN:   'VACCIN_AGENT',   NUTRI:    'NUTRI_AGENT',
+    HYGIENE:  'HYGIENE_AGENT',  EAU:      'EAU_AGENT',
+    CANCER:   'CANCER_AGENT',   ESPRIT:   'ESPRIT_AGENT',
+    HANDICAP: 'HANDICAP_AGENT', AGRI:     'AGRI_AGENT',
+    METEO:    'METEO_AGENT',    FINANCE:  'FINANCE_AGENT',
+    MICRO:    'MICRO_AGENT',    ACTUQUIZ: 'ACTU_AGENT',
+    SECURITE: 'SECURITE_AGENT', ORIENTATION: 'ORIENTATION_AGENT',
+    EMPLOI:   'EMPLOI_AGENT',   ROUTE:    'ROUTE_AGENT',
+    DROIT:    'DROIT_AGENT',    FEMME:    'FEMME_AGENT',
+    ELECTION: 'ELECTION_AGENT', ARNAQUE:  'ARNAQUE_AGENT',
+    CONCOURS: 'CONCOURS_AGENT', SENIOR:   'SENIOR_AGENT',
+    TRAVAIL:  'TRAVAIL_AGENT',  VOD:      'VOD_AGENT',
+    SOS:      'SOS_AGENT',
   };
 
   constructor(
-    private coreConfig:     CoreConfigService,
-    private telecom:        TelecomService,
-    private config:         ConfigService,
-    private contentSource:  ContentSourceService,
-  ) {}
+    private coreConfig:    CoreConfigService,
+    private telecom:       TelecomService,
+    private config:        ConfigService,
+    private contentSource: ContentSourceService,
+  ) {
+    const url = config.get('DATABASE_URL_CORE');
+    if (url) this.poolCore = new Pool({ connectionString: url });
+  }
 
   // ---------------------------------------------------------------------------
   // CRON 05h00 — Génération quotidienne
@@ -71,16 +79,18 @@ export class QuizGeneratorService {
     let generes = 0;
     let echecs  = 0;
 
-    const services = Object.keys(this.AGENTS);
-    for (const serviceCode of services) {
+    for (const serviceCode of Object.keys(this.AGENTS)) {
       try {
         const question = await this.genererQuestion(serviceCode);
         if (question && question.cqciScore >= 0.75) {
           await this.stockerQuestion(question);
           generes++;
-          this.logger.log('[QUIZ-GEN] OK ' + serviceCode + ' — CQ-CI: ' + question.cqciScore + (question.source_csp ? ' | CSP: ' + question.source_csp : ''));
+          this.logger.log('[QUIZ-GEN] OK ' + serviceCode +
+            ' | type: ' + question.typeQuestion +
+            ' | CQ-CI: ' + question.cqciScore +
+            (question.source_csp ? ' | CSP: ' + question.source_csp : ''));
         } else {
-          this.logger.warn('[QUIZ-GEN] REJETE ' + serviceCode + ' — score CQ-CI insuffisant: ' + (question?.cqciScore ?? 0));
+          this.logger.warn('[QUIZ-GEN] REJETE ' + serviceCode + ' — CQ-CI: ' + (question?.cqciScore ?? 0));
           echecs++;
         }
       } catch (err: any) {
@@ -90,19 +100,20 @@ export class QuizGeneratorService {
       await this.sleep(2000);
     }
 
-    this.logger.log('[QUIZ-GEN] Termine — ' + generes + ' questions generees, ' + echecs + ' echecs');
+    this.logger.log('[QUIZ-GEN] Termine — ' + generes + ' generes, ' + echecs + ' echecs');
     await this.notifierModerateurs(generes);
   }
 
   // ---------------------------------------------------------------------------
-  // GÉNÉRATION D'UNE QUESTION — avec injection CSP
+  // GÉNÉRER UNE QUESTION — avec type depuis base_core
   // ---------------------------------------------------------------------------
   private async genererQuestion(serviceCode: string): Promise<QuizQuestion | null> {
-    const agentName = this.AGENTS[serviceCode] ?? 'GENERIC_AGENT';
-    const heure     = new Date().getHours();
-    const mode      = heure < 12 ? 'INFO' : 'QUIZ';
+    const agentName   = this.AGENTS[serviceCode] ?? 'GENERIC_AGENT';
+    const typeQuestion = await this.chargerTypeQuestion(serviceCode);
+    const heure       = new Date().getHours();
+    const mode        = heure < 12 ? 'INFO' : 'QUIZ';
 
-    // ── NOUVEAU Sprint 33 — Scraper les faits du jour depuis CSP ──────────
+    // Scraping CSP
     let contexteCSP = '';
     let sourceCsp   = '';
     try {
@@ -113,19 +124,15 @@ export class QuizGeneratorService {
         this.logger.log('[QUIZ-GEN] CSP actif pour ' + serviceCode + ' — ' + faits.length + ' faits');
       }
     } catch (e: any) {
-      this.logger.warn('[QUIZ-GEN] CSP non disponible pour ' + serviceCode + ': ' + e.message);
+      this.logger.warn('[QUIZ-GEN] CSP non disponible: ' + e.message);
     }
-    // ────────────────────────────────────────────────────────────────────────
 
-    const promptSystem = this.buildPromptSystem(serviceCode, mode);
-    const promptUser   = this.buildPromptUser(serviceCode, mode, contexteCSP);
+    const promptSystem = this.buildPromptSystem(serviceCode, typeQuestion, mode);
+    const promptUser   = this.buildPromptUser(serviceCode, typeQuestion, mode, contexteCSP);
 
     try {
       const apiKey = this.config.get('ANTHROPIC_API_KEY') ?? '';
-
-      if (!apiKey) {
-        return this.mockQuestion(serviceCode, agentName, sourceCsp);
-      }
+      if (!apiKey) return this.mockQuestion(serviceCode, agentName, typeQuestion, sourceCsp);
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method:  'POST',
@@ -136,68 +143,111 @@ export class QuizGeneratorService {
         },
         body: JSON.stringify({
           model:      'claude-haiku-4-5-20251001',
-          max_tokens: 500,
+          max_tokens: 600,
           messages:   [{ role: 'user', content: promptSystem + '\n\n' + promptUser }],
         }),
       });
 
       const data = await response.json() as any;
       const text = data?.content?.[0]?.text ?? '';
-      const q    = this.parseReponseIA(text, serviceCode, agentName);
+      const q    = this.parseReponseIA(text, serviceCode, agentName, typeQuestion);
       if (q) q.source_csp = sourceCsp;
       return q;
-
     } catch (err: any) {
-      this.logger.error('[QUIZ-GEN] Erreur IA pour ' + serviceCode + ': ' + err.message);
-      return this.mockQuestion(serviceCode, agentName, sourceCsp);
+      this.logger.error('[QUIZ-GEN] Erreur IA: ' + err.message);
+      return this.mockQuestion(serviceCode, agentName, typeQuestion, sourceCsp);
     }
   }
 
   // ---------------------------------------------------------------------------
-  // PROMPTS — avec injection du contexte CSP
+  // CHARGER TYPE QUESTION depuis base_core (Zéro Hardcode)
   // ---------------------------------------------------------------------------
-  private buildPromptSystem(serviceCode: string, mode: string): string {
+  private async chargerTypeQuestion(serviceCode: string): Promise<TypeQuestion> {
+    if (!this.poolCore) return 'QCM_3';
+    let client: PoolClient | null = null;
+    try {
+      client = await this.poolCore.connect();
+      await client.query('BEGIN');
+      await client.query(`SET LOCAL app.current_tenant = 'CI'`);
+      await client.query(`SET LOCAL app.current_operator_role = 'SUPER_ADMIN'`);
+      await client.query(`SET LOCAL app.client_ip = '127.0.0.1'`);
+
+      const res = await client.query(`
+        SELECT type_question
+        FROM core.yira_config_service
+        WHERE service_code = $1 AND tenant_id = 'CI'
+          AND status = 'ACTIVE' AND deleted_at IS NULL
+        LIMIT 1
+      `, [serviceCode]);
+
+      await client.query('COMMIT');
+      return (res.rows[0]?.type_question as TypeQuestion) ?? 'QCM_3';
+    } catch {
+      if (client) await client.query('ROLLBACK').catch(() => {});
+      return 'QCM_3';
+    } finally {
+      if (client) client.release();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // PROMPT SYSTÈME — selon le type de question
+  // ---------------------------------------------------------------------------
+  private buildPromptSystem(serviceCode: string, type: TypeQuestion, mode: string): string {
+    const formats: Record<TypeQuestion, string> = {
+      QCM_3:      'Format JSON: {"question":"...","optionA":"...","optionB":"...","optionC":"...","bonneRep":"A","explication":"...","difficulte":1}',
+      QCM_4:      'Format JSON: {"question":"...","optionA":"...","optionB":"...","optionC":"...","optionD":"...","bonneRep":"A","explication":"...","difficulte":2}',
+      VRAI_FAUX:  'Format JSON: {"question":"Affirmation a evaluer (VRAI ou FAUX):...","optionA":"VRAI","optionB":"FAUX","optionC":"","bonneRep":"A","explication":"...","difficulte":1}',
+      CALCUL:     'Format JSON: {"question":"Calcul rapide:...","optionA":"montant1","optionB":"montant2","optionC":"montant3","bonneRep":"A","explication":"...","difficulte":2}',
+      COMPLEMENT: 'Format JSON: {"question":"Completez: [debut de proverbe ou phrase]...","optionA":"fin correcte","optionB":"fin incorrecte 1","optionC":"fin incorrecte 2","bonneRep":"A","explication":"...","difficulte":1}',
+      SEQUENCE:   'Format JSON: {"question":"Classez dans l ordre chronologique:","optionA":"ordre correct ex: 1-2-3","optionB":"ordre incorrect 1","optionC":"ordre incorrect 2","bonneRep":"A","explication":"...","difficulte":3}',
+    };
+
     return 'Tu es un agent editorial YIRA specialise en ' + serviceCode + ' pour la Cote dIvoire. ' +
-           'Tu generes du contenu educatif et culturellement adapte au contexte ivoirien et ouest-africain. ' +
-           'Toujours en francais simple et accessible. Maximum 160 caracteres par champ. ' +
-           'Mode actuel: ' + mode + '. ' +
-           'Reponds UNIQUEMENT en JSON valide, sans markdown ni explication.';
-  }
-
-  private buildPromptUser(serviceCode: string, mode: string, contexteCSP: string): string {
-    const base = contexteCSP
-      ? contexteCSP + '\n'  // Injecter les faits CSP en premier
-      : '';
-
-    if (mode === 'QUIZ') {
-      return base +
-        'Genere une question quiz sur ' + serviceCode + ' pour un utilisateur ivoirien. ' +
-        (contexteCSP ? 'Base-toi sur un des faits ci-dessus pour ancrer la question dans l\'actualite reelle. ' : '') +
-        'Format JSON strict: {"question":"...","optionA":"...","optionB":"...","optionC":"...","bonneRep":"A","explication":"...","difficulte":1}';
-    }
-    return base +
-      'Genere une info utile du jour sur ' + serviceCode + ' pour un ivoirien. ' +
-      'Format JSON strict: {"question":"Info du jour:","optionA":"...","optionB":"","optionC":"","bonneRep":"A","explication":"...","difficulte":1}';
+           'Tu generes du contenu educatif adapte au contexte ivoirien. ' +
+           'Toujours en francais simple. Maximum 160 caracteres par champ. ' +
+           'Type de question: ' + type + '. Mode: ' + mode + '. ' +
+           'Reponds UNIQUEMENT en JSON valide. ' + formats[type];
   }
 
   // ---------------------------------------------------------------------------
-  // PARSE RÉPONSE IA
+  // PROMPT UTILISATEUR — avec injection CSP
   // ---------------------------------------------------------------------------
-  private parseReponseIA(text: string, serviceCode: string, agentName: string): QuizQuestion | null {
+  private buildPromptUser(serviceCode: string, type: TypeQuestion, mode: string, contexteCSP: string): string {
+    const base = contexteCSP ? contexteCSP + '\n' : '';
+
+    const instructions: Record<TypeQuestion, string> = {
+      QCM_3:      'Genere une question QCM 3 choix sur ' + serviceCode + ' pour un ivoirien.',
+      QCM_4:      'Genere une question QCM 4 choix difficile sur ' + serviceCode + ' (niveau concours fonction publique CI).',
+      VRAI_FAUX:  'Genere une affirmation VRAI ou FAUX sur ' + serviceCode + ' adaptee au niveau primaire/college.',
+      CALCUL:     'Genere un calcul simple avec des montants en FCFA sur ' + serviceCode + '. Ex: taux interet, budget, profit.',
+      COMPLEMENT: 'Genere un proverbe ivoirien ou ouest-africain a completer. La fin doit etre connue.',
+      SEQUENCE:   'Genere une sequence de 3 evenements historiques a classer dans l ordre chronologique.',
+    };
+
+    return base + instructions[type] +
+      (contexteCSP ? ' Base-toi sur les faits ci-dessus.' : '') +
+      ' Reponds en JSON uniquement.';
+  }
+
+  // ---------------------------------------------------------------------------
+  // PARSER RÉPONSE IA
+  // ---------------------------------------------------------------------------
+  private parseReponseIA(text: string, serviceCode: string, agentName: string, typeQuestion: TypeQuestion): QuizQuestion | null {
     try {
       const clean = text.replace(/```json|```/g, '').trim();
       const data  = JSON.parse(clean);
-      const cqciScore = this.calculerScoreCQCI(data.question, serviceCode);
+      const cqciScore = this.calculerScoreCQCI(data.question ?? '', serviceCode);
 
       return {
-        serviceCode,
-        agentName,
-        question:    (data.question    ?? '').slice(0, 100),
-        optionA:     (data.optionA     ?? '').slice(0, 40),
-        optionB:     (data.optionB     ?? '').slice(0, 40),
-        optionC:     (data.optionC     ?? '').slice(0, 40),
+        serviceCode, agentName, typeQuestion,
+        question:    (data.question    ?? '').slice(0, 160),
+        optionA:     (data.optionA     ?? '').slice(0, 60),
+        optionB:     (data.optionB     ?? '').slice(0, 60),
+        optionC:     (data.optionC     ?? '').slice(0, 60),
+        optionD:     data.optionD ? (data.optionD ?? '').slice(0, 60) : undefined,
         bonneRep:    data.bonneRep     ?? 'A',
-        explication: (data.explication ?? '').slice(0, 80),
+        explication: (data.explication ?? '').slice(0, 160),
         difficulte:  data.difficulte   ?? 1,
         cqciScore,
       };
@@ -209,7 +259,7 @@ export class QuizGeneratorService {
   // ---------------------------------------------------------------------------
   private calculerScoreCQCI(question: string, serviceCode: string): number {
     let score = 0.75;
-    const motsCulturels = ['ivoir', 'abidjan', 'ci', 'cote', 'afrique', 'ouest', 'fcfa', 'orange', 'mtn', 'artci'];
+    const motsCulturels = ['ivoir', 'abidjan', 'ci', 'cote', 'afrique', 'ouest', 'fcfa', 'orange', 'mtn'];
     const motsInterdits = ['trump', 'biden', 'ukraine', 'putin', 'israel'];
     const q = question.toLowerCase();
     motsCulturels.forEach(m => { if (q.includes(m)) score += 0.03; });
@@ -245,7 +295,7 @@ export class QuizGeneratorService {
   }
 
   // ---------------------------------------------------------------------------
-  // NOTIFICATION MODÉRATEURS 05h15
+  // NOTIFICATION MODÉRATEURS
   // ---------------------------------------------------------------------------
   private async notifierModerateurs(nbQuestions: number): Promise<void> {
     await this.sleep(15 * 60 * 1000);
@@ -258,7 +308,6 @@ export class QuizGeneratorService {
     for (const [groupe, tel] of Object.entries(moderateurs)) {
       if (tel) {
         await this.telecom.sendModerationAlert(tel, groupe, Math.ceil(nbQuestions / 4));
-        this.logger.log('[QUIZ-GEN] Alerte moderateur ' + groupe + ' → ' + tel);
       }
     }
   }
@@ -266,23 +315,28 @@ export class QuizGeneratorService {
   // ---------------------------------------------------------------------------
   // MOCK — DEV sans clé IA
   // ---------------------------------------------------------------------------
-  private mockQuestion(serviceCode: string, agentName: string, sourceCsp = ''): QuizQuestion {
+  private mockQuestion(serviceCode: string, agentName: string, typeQuestion: TypeQuestion, sourceCsp = ''): QuizQuestion {
+    const mocks: Record<TypeQuestion, Partial<QuizQuestion>> = {
+      QCM_3:      { question: 'Question QCM_3 test ' + serviceCode, optionA: 'Bonne reponse', optionB: 'Mauvaise 1', optionC: 'Mauvaise 2', bonneRep: 'A' },
+      QCM_4:      { question: 'Question QCM_4 test ' + serviceCode, optionA: 'Bonne reponse', optionB: 'Mauvaise 1', optionC: 'Mauvaise 2', optionD: 'Mauvaise 3', bonneRep: 'A' },
+      VRAI_FAUX:  { question: 'Affirmation test ' + serviceCode + ' est vraie?', optionA: 'VRAI', optionB: 'FAUX', optionC: '', bonneRep: 'A' },
+      CALCUL:     { question: 'Si 1000 FCFA a 5%/mois pendant 2 mois = ?', optionA: '1100 FCFA', optionB: '1050 FCFA', optionC: '1200 FCFA', bonneRep: 'A' },
+      COMPLEMENT: { question: 'Completez: L union fait...', optionA: 'la force', optionB: 'la faiblesse', optionC: 'le bonheur', bonneRep: 'A' },
+      SEQUENCE:   { question: 'Classez: A)1960 B)1905 C)1842', optionA: 'C-B-A', optionB: 'A-B-C', optionC: 'B-A-C', bonneRep: 'A' },
+    };
+
     return {
-      serviceCode, agentName,
-      question:    'Question test ' + serviceCode + (sourceCsp ? ' [CSP:' + sourceCsp + ']' : '') + ' — mode DEV',
-      optionA:     'Reponse A correcte',
-      optionB:     'Reponse B incorrecte',
-      optionC:     'Reponse C incorrecte',
-      bonneRep:    'A',
-      explication: 'Explication ' + serviceCode + ' — mode developpement',
+      serviceCode, agentName, typeQuestion,
+      ...mocks[typeQuestion],
+      explication: 'Explication ' + serviceCode + ' mode DEV',
       difficulte:  1,
       cqciScore:   0.80,
       source_csp:  sourceCsp,
-    };
+    } as QuizQuestion;
   }
 
   // ---------------------------------------------------------------------------
-  // GÉNÉRATION MANUELLE — Pour tests
+  // GÉNÉRATION MANUELLE
   // ---------------------------------------------------------------------------
   async genererMaintenantPourService(serviceCode: string): Promise<QuizQuestion | null> {
     this.logger.log('[QUIZ-GEN] Generation manuelle pour ' + serviceCode);
