@@ -18,6 +18,7 @@ import { CommandModule } from './modules/command/command.module';
 import { VasModule } from './modules/vas/vas.module';
 import { VeilleModule } from './modules/veille/veille.module';
 import { SosModule } from './modules/sos/sos.module';
+import { PasseportModule } from './modules/passeport/passeport.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SosModule } from './modules/sos/sos.module';
     VasModule,
     VeilleModule,
     SosModule,
+    PasseportModule,
   ],
 })
 export class AppModule {}
