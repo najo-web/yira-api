@@ -1,17 +1,16 @@
 ﻿// =============================================================================
-// YIRA V3.0 â€” QuizGeneratorService
-// Niveau 4 (N4) â€” GÃ©nÃ©ration quotidienne des questions VAS par 24 agents IA
-// L3 Â§5.1 : Cron 05h00 Africa/Abidjan â€” gÃ©nÃ¨re 1 question par service actif
-// Stockage : base_game.yira_game_question (moderation_statut=EN_ATTENTE)
-// Filtre CQ-CI : score culturel â‰¥ 0.75 obligatoire avant stockage
+// YIRA V3.0 — QuizGeneratorService
+// Sprint 33 — ContentSourceService intégré (scraping CSP réel)
+// Niveau 4 (N4) — Génération quotidienne des questions VAS par 24 agents IA
+// L3 §5.1 : Cron 05h00 Africa/Abidjan
+// Filtre CQ-CI : score culturel ≥ 0.75 obligatoire
 // =============================================================================
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { CoreConfigService } from '../../core-config/core-config.service';
 import { TelecomService } from '../../modules/telecom/telecom.service';
-
-// Import client Prisma base_game
+import { ContentSourceService } from './content-source/content-source.service';
 import { PrismaClient as PrismaGame } from '.prisma/client-game';
 
 export interface QuizQuestion {
@@ -25,15 +24,15 @@ export interface QuizQuestion {
   explication:  string;
   difficulte:   number;
   cqciScore:    number;
+  source_csp?:  string; // Nouvelle — source du fait utilisé
 }
 
 @Injectable()
 export class QuizGeneratorService {
-  private readonly logger  = new Logger(QuizGeneratorService.name);
-  private readonly prisma  = new PrismaGame({ datasources: { db: { url: process.env.DATABASE_URL_GAME } } });
+  private readonly logger   = new Logger(QuizGeneratorService.name);
+  private readonly prisma   = new PrismaGame({ datasources: { db: { url: process.env.DATABASE_URL_GAME } } });
   private readonly tenantId = 'CI';
 
-  // Map service â†’ agent IA spÃ©cialisÃ©
   private readonly AGENTS: Record<string, string> = {
     ZOUGLOU:     'ZOUGLOU_AGENT',    CULTURE:  'CULTURE_AGENT',
     SPORT:       'SPORT_AGENT',      PROVERBE: 'PROVERBE_AGENT',
@@ -57,72 +56,78 @@ export class QuizGeneratorService {
   };
 
   constructor(
-    private coreConfig: CoreConfigService,
-    private telecom:    TelecomService,
-    private config:     ConfigService,
+    private coreConfig:     CoreConfigService,
+    private telecom:        TelecomService,
+    private config:         ConfigService,
+    private contentSource:  ContentSourceService,
   ) {}
 
   // ---------------------------------------------------------------------------
-  // CRON 05h00 â€” GÃ©nÃ©ration quotidienne (Africa/Abidjan = UTC+0)
+  // CRON 05h00 — Génération quotidienne
   // ---------------------------------------------------------------------------
   @Cron('0 5 * * *', { timeZone: 'Africa/Abidjan' })
   async genererQuotidien(): Promise<void> {
-    this.logger.log('[QUIZ-GEN] Demarrage generation quotidienne â€” ' + new Date().toISOString());
+    this.logger.log('[QUIZ-GEN] Demarrage generation quotidienne — ' + new Date().toISOString());
     let generes = 0;
     let echecs  = 0;
 
-    // Charge tous les services actifs depuis base_core
     const services = Object.keys(this.AGENTS);
-
     for (const serviceCode of services) {
       try {
         const question = await this.genererQuestion(serviceCode);
         if (question && question.cqciScore >= 0.75) {
           await this.stockerQuestion(question);
           generes++;
-          this.logger.log('[QUIZ-GEN] OK ' + serviceCode + ' â€” score CQ-CI: ' + question.cqciScore);
+          this.logger.log('[QUIZ-GEN] OK ' + serviceCode + ' — CQ-CI: ' + question.cqciScore + (question.source_csp ? ' | CSP: ' + question.source_csp : ''));
         } else {
-          this.logger.warn('[QUIZ-GEN] REJETE ' + serviceCode + ' â€” score CQ-CI insuffisant: ' + (question?.cqciScore ?? 0));
+          this.logger.warn('[QUIZ-GEN] REJETE ' + serviceCode + ' — score CQ-CI insuffisant: ' + (question?.cqciScore ?? 0));
           echecs++;
         }
       } catch (err: any) {
-        this.logger.error('[QUIZ-GEN] ECHEC ' + serviceCode + ' â€” ' + err.message);
+        this.logger.error('[QUIZ-GEN] ECHEC ' + serviceCode + ' — ' + err.message);
         echecs++;
       }
-
-      // Pause 2s entre chaque agent pour Ã©viter rate limiting IA
       await this.sleep(2000);
     }
 
-    this.logger.log('[QUIZ-GEN] TerminÃ© â€” ' + generes + ' questions gÃ©nÃ©rÃ©es, ' + echecs + ' Ã©checs');
-
-    // Notification modÃ©rateurs Ã  05h15
+    this.logger.log('[QUIZ-GEN] Termine — ' + generes + ' questions generees, ' + echecs + ' echecs');
     await this.notifierModerateurs(generes);
   }
 
   // ---------------------------------------------------------------------------
-  // GÃ©nÃ©ration d'une question via l'IA
-  // Prompt pilotÃ© par base_core.ia_prompts (ZÃ©ro Hardcode)
+  // GÉNÉRATION D'UNE QUESTION — avec injection CSP
   // ---------------------------------------------------------------------------
   private async genererQuestion(serviceCode: string): Promise<QuizQuestion | null> {
     const agentName = this.AGENTS[serviceCode] ?? 'GENERIC_AGENT';
     const heure     = new Date().getHours();
     const mode      = heure < 12 ? 'INFO' : 'QUIZ';
 
-    // Prompt de gÃ©nÃ©ration
+    // ── NOUVEAU Sprint 33 — Scraper les faits du jour depuis CSP ──────────
+    let contexteCSP = '';
+    let sourceCsp   = '';
+    try {
+      const faits = await this.contentSource.obtenirFaits(serviceCode, this.tenantId, 3);
+      if (faits.length > 0) {
+        contexteCSP = await this.contentSource.construireContexteIA(serviceCode, this.tenantId);
+        sourceCsp   = faits[0].source;
+        this.logger.log('[QUIZ-GEN] CSP actif pour ' + serviceCode + ' — ' + faits.length + ' faits');
+      }
+    } catch (e: any) {
+      this.logger.warn('[QUIZ-GEN] CSP non disponible pour ' + serviceCode + ': ' + e.message);
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const promptSystem = this.buildPromptSystem(serviceCode, mode);
-    const promptUser   = this.buildPromptUser(serviceCode, mode);
+    const promptUser   = this.buildPromptUser(serviceCode, mode, contexteCSP);
 
     try {
-      const apiUrl = 'https://api.anthropic.com/v1/messages';
       const apiKey = this.config.get('ANTHROPIC_API_KEY') ?? '';
 
       if (!apiKey) {
-        // Mode mock DEV â€” gÃ©nÃ¨re une question fictive
-        return this.mockQuestion(serviceCode, agentName);
+        return this.mockQuestion(serviceCode, agentName, sourceCsp);
       }
 
-      const response = await fetch(apiUrl, {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method:  'POST',
         headers: {
           'Content-Type':      'application/json',
@@ -138,17 +143,18 @@ export class QuizGeneratorService {
 
       const data = await response.json() as any;
       const text = data?.content?.[0]?.text ?? '';
-
-      return this.parseReponseIA(text, serviceCode, agentName);
+      const q    = this.parseReponseIA(text, serviceCode, agentName);
+      if (q) q.source_csp = sourceCsp;
+      return q;
 
     } catch (err: any) {
       this.logger.error('[QUIZ-GEN] Erreur IA pour ' + serviceCode + ': ' + err.message);
-      return this.mockQuestion(serviceCode, agentName);
+      return this.mockQuestion(serviceCode, agentName, sourceCsp);
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Prompt systÃ¨me (ZÃ©ro Hardcode â€” sera migrÃ© vers base_core.ia_prompts)
+  // PROMPTS — avec injection du contexte CSP
   // ---------------------------------------------------------------------------
   private buildPromptSystem(serviceCode: string, mode: string): string {
     return 'Tu es un agent editorial YIRA specialise en ' + serviceCode + ' pour la Cote dIvoire. ' +
@@ -158,24 +164,29 @@ export class QuizGeneratorService {
            'Reponds UNIQUEMENT en JSON valide, sans markdown ni explication.';
   }
 
-  private buildPromptUser(serviceCode: string, mode: string): string {
+  private buildPromptUser(serviceCode: string, mode: string, contexteCSP: string): string {
+    const base = contexteCSP
+      ? contexteCSP + '\n'  // Injecter les faits CSP en premier
+      : '';
+
     if (mode === 'QUIZ') {
-      return 'Genere une question quiz sur ' + serviceCode + ' pour un utilisateur ivoirien. ' +
-             'Format JSON strict: {"question":"...","optionA":"...","optionB":"...","optionC":"...","bonneRep":"A","explication":"...","difficulte":1}';
+      return base +
+        'Genere une question quiz sur ' + serviceCode + ' pour un utilisateur ivoirien. ' +
+        (contexteCSP ? 'Base-toi sur un des faits ci-dessus pour ancrer la question dans l\'actualite reelle. ' : '') +
+        'Format JSON strict: {"question":"...","optionA":"...","optionB":"...","optionC":"...","bonneRep":"A","explication":"...","difficulte":1}';
     }
-    return 'Genere une info utile du jour sur ' + serviceCode + ' pour un ivoirien. ' +
-           'Format JSON strict: {"question":"Info du jour:","optionA":"...","optionB":"","optionC":"","bonneRep":"A","explication":"...","difficulte":1}';
+    return base +
+      'Genere une info utile du jour sur ' + serviceCode + ' pour un ivoirien. ' +
+      'Format JSON strict: {"question":"Info du jour:","optionA":"...","optionB":"","optionC":"","bonneRep":"A","explication":"...","difficulte":1}';
   }
 
   // ---------------------------------------------------------------------------
-  // Parse la rÃ©ponse IA en QuizQuestion
+  // PARSE RÉPONSE IA
   // ---------------------------------------------------------------------------
   private parseReponseIA(text: string, serviceCode: string, agentName: string): QuizQuestion | null {
     try {
       const clean = text.replace(/```json|```/g, '').trim();
       const data  = JSON.parse(clean);
-
-      // Filtre CQ-CI automatique
       const cqciScore = this.calculerScoreCQCI(data.question, serviceCode);
 
       return {
@@ -190,32 +201,24 @@ export class QuizGeneratorService {
         difficulte:  data.difficulte   ?? 1,
         cqciScore,
       };
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }
 
   // ---------------------------------------------------------------------------
-  // Filtre CQ-CI â€” Score culturel automatique
-  // VÃ©rifie l'adÃ©quation avec le contexte ivoirien
+  // FILTRE CQ-CI
   // ---------------------------------------------------------------------------
   private calculerScoreCQCI(question: string, serviceCode: string): number {
-    let score = 0.75; // Base neutre
-
-    // Bonus si contenu culturellement ancrÃ© CI
+    let score = 0.75;
     const motsCulturels = ['ivoir', 'abidjan', 'ci', 'cote', 'afrique', 'ouest', 'fcfa', 'orange', 'mtn', 'artci'];
-    const questionLower = question.toLowerCase();
-    motsCulturels.forEach(mot => { if (questionLower.includes(mot)) score += 0.03; });
-
-    // Malus si contenu non adaptÃ©
     const motsInterdits = ['trump', 'biden', 'ukraine', 'putin', 'israel'];
-    motsInterdits.forEach(mot => { if (questionLower.includes(mot)) score -= 0.20; });
-
+    const q = question.toLowerCase();
+    motsCulturels.forEach(m => { if (q.includes(m)) score += 0.03; });
+    motsInterdits.forEach(m => { if (q.includes(m)) score -= 0.20; });
     return Math.min(1.0, Math.max(0.0, score));
   }
 
   // ---------------------------------------------------------------------------
-  // Stockage dans base_game
+  // STOCKER EN BASE_GAME
   // ---------------------------------------------------------------------------
   private async stockerQuestion(q: QuizQuestion): Promise<void> {
     const expireAt = new Date();
@@ -223,67 +226,63 @@ export class QuizGeneratorService {
 
     await this.prisma.yiraGameQuestion.create({
       data: {
-        tenant_id:            this.tenantId,
-        service_code:         q.serviceCode,
-        agent_id:             q.agentName,
-        question:             q.question,
-        option_a:             q.optionA,
-        option_b:             q.optionB,
-        option_c:             q.optionC,
-        bonne_rep:            q.bonneRep,
-        explication:          q.explication,
-        difficulte:           q.difficulte,
-        actif:                false,
-        moderation_statut:    'EN_ATTENTE',
-        genere_at:            new Date(),
-        expire_at:            expireAt,
+        tenant_id:         this.tenantId,
+        service_code:      q.serviceCode,
+        agent_id:          q.agentName,
+        question:          q.question,
+        option_a:          q.optionA,
+        option_b:          q.optionB,
+        option_c:          q.optionC,
+        bonne_rep:         q.bonneRep,
+        explication:       q.explication,
+        difficulte:        q.difficulte,
+        actif:             false,
+        moderation_statut: 'EN_ATTENTE',
+        genere_at:         new Date(),
+        expire_at:         expireAt,
       } as any,
     });
   }
 
   // ---------------------------------------------------------------------------
-  // Notification modÃ©rateurs Ã  05h15
+  // NOTIFICATION MODÉRATEURS 05h15
   // ---------------------------------------------------------------------------
   private async notifierModerateurs(nbQuestions: number): Promise<void> {
-    await this.sleep(15 * 60 * 1000); // Attendre 15 minutes
-
-    const groupes = ['SANTE', 'CULTURE', 'CITOYEN', 'EDU'];
+    await this.sleep(15 * 60 * 1000);
     const moderateurs: Record<string, string> = {
       SANTE:   process.env.MODERATEUR_SANTE_TEL   ?? '',
       CULTURE: process.env.MODERATEUR_CULTURE_TEL ?? '',
       CITOYEN: process.env.MODERATEUR_CITOYEN_TEL ?? '',
       EDU:     process.env.MODERATEUR_EDU_TEL     ?? '',
     };
-
-    for (const groupe of groupes) {
-      const tel = moderateurs[groupe];
+    for (const [groupe, tel] of Object.entries(moderateurs)) {
       if (tel) {
         await this.telecom.sendModerationAlert(tel, groupe, Math.ceil(nbQuestions / 4));
-        this.logger.log('[QUIZ-GEN] Alerte moderateur ' + groupe + ' -> ' + tel);
+        this.logger.log('[QUIZ-GEN] Alerte moderateur ' + groupe + ' → ' + tel);
       }
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Mock question pour DEV (sans clÃ© IA)
+  // MOCK — DEV sans clé IA
   // ---------------------------------------------------------------------------
-  private mockQuestion(serviceCode: string, agentName: string): QuizQuestion {
+  private mockQuestion(serviceCode: string, agentName: string, sourceCsp = ''): QuizQuestion {
     return {
-      serviceCode,
-      agentName,
-      question:   'Question test ' + serviceCode + ' generee en mode DEV',
-      optionA:    'Reponse A correcte',
-      optionB:    'Reponse B incorrecte',
-      optionC:    'Reponse C incorrecte',
-      bonneRep:   'A',
-      explication: 'Explication ' + serviceCode + ' â€” mode developpement',
-      difficulte: 1,
-      cqciScore:  0.80,
+      serviceCode, agentName,
+      question:    'Question test ' + serviceCode + (sourceCsp ? ' [CSP:' + sourceCsp + ']' : '') + ' — mode DEV',
+      optionA:     'Reponse A correcte',
+      optionB:     'Reponse B incorrecte',
+      optionC:     'Reponse C incorrecte',
+      bonneRep:    'A',
+      explication: 'Explication ' + serviceCode + ' — mode developpement',
+      difficulte:  1,
+      cqciScore:   0.80,
+      source_csp:  sourceCsp,
     };
   }
 
   // ---------------------------------------------------------------------------
-  // DÃ©clenchement manuel â€” Pour tester sans attendre 05h00
+  // GÉNÉRATION MANUELLE — Pour tests
   // ---------------------------------------------------------------------------
   async genererMaintenantPourService(serviceCode: string): Promise<QuizQuestion | null> {
     this.logger.log('[QUIZ-GEN] Generation manuelle pour ' + serviceCode);
