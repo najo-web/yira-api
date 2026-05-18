@@ -17,6 +17,7 @@ import { SignerModule } from './modules/signer/signer.module';
 import { CommandModule } from './modules/command/command.module';
 import { VasModule } from './modules/vas/vas.module';
 import { VeilleModule } from './modules/veille/veille.module';
+import { SosModule } from './modules/sos/sos.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { VeilleModule } from './modules/veille/veille.module';
     CommandModule,
     VasModule,
     VeilleModule,
+    SosModule,
   ],
 })
 export class AppModule {}
