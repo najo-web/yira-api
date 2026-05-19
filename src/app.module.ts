@@ -21,6 +21,7 @@ import { SosModule } from './modules/sos/sos.module';
 import { PasseportModule } from './modules/passeport/passeport.module';
 import { AntifraudeModule } from './modules/antifraude/antifraude.module';
 import { RescueModule } from './modules/rescue/rescue.module';
+import { CQCIModule } from './modules/cqci/cqci.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RescueModule } from './modules/rescue/rescue.module';
     PasseportModule,
     AntifraudeModule,
     RescueModule,
+    CQCIModule
   ],
 })
 export class AppModule {}

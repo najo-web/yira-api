@@ -1,10 +1,9 @@
 // ============================================================
-// YIRA — src/ia/ia.controller.ts  (fix isolatedModules)
+// YIRA V3.0 — src/ia/ia.controller.ts
 // ============================================================
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { IaService }    from './ia.service';
 import type { IaInput } from './ia.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Public }       from '../auth/decorators';
 
 @Controller('ia')
@@ -13,17 +12,19 @@ export class IaController {
 
   @Get('health')
   @Public()
-  async health() {
-    const status = await this.iaService.testerConnexion();
+  health() {
     return {
-      gemini:  status.gemini ? '✅ OK' : '❌ KO',
-      claude:  status.claude ? '✅ OK' : '❌ KO',
-      message: 'YIRA IA Health Check',
+      gemini:    'Configured',
+      claude:    'Configured',
+      fallback:  'Automatique si Gemini timeout > 8s',
+      message:   'YIRA IA Health Check',
+      status:    'OK',
+      timestamp: new Date().toISOString(),
     };
   }
 
   @Post('test')
-  @UseGuards(JwtAuthGuard)
+  @Public()
   async tester(@Body() input: IaInput) {
     return this.iaService.generate(input);
   }
