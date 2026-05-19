@@ -1,0 +1,601 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/modules/telecom/telecom.service.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/modules/telecom</a> telecom.service.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/83</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/59</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/13</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/68</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// =============================================================================
+// YIRA V3.0 — TelecomService (Router multi-provider)
+// Niveau 2 (N2) — Abstraction complète du provider télécom
+// L3 §4.2 : Commutation transparente entre providers sans modification métier
+// Provider primaire  : AfricasTalking (DEV/TEST — sandbox gratuit)
+// Provider secondaire: LAfricaMobile  (PROD CI)
+// =============================================================================
+<span class="cstat-no" title="statement not covered" >import { Injectable, Logger, OnModuleInit } from '@nestjs/common';</span>
+<span class="cstat-no" title="statement not covered" >import { ConfigService } from '@nestjs/config';</span>
+<span class="cstat-no" title="statement not covered" >import { AfricasTalkingProvider } from './providers/africas-talking.provider';</span>
+&nbsp;
+export interface SmsResult {
+  success:    boolean;
+  provider:   string;
+  messageId?: string;
+  error?:     string;
+  fallback:   boolean;
+}
+&nbsp;
+@Injectable()
+export class <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >TelecomService<span class="cstat-no" title="statement not covered" > </span>implements OnModuleInit {</span></span>
+  private readonly <span class="cstat-no" title="statement not covered" >logger = new Logger(TelecomService.name);</span>
+  private readonly lamUrl:       string;
+  private readonly lamAccount:   string;
+  private readonly lamPassword:  string;
+  private readonly lamSenderOtp: string;
+  private readonly lamSenderVas: string;
+  private readonly lamSenderSos: string;
+  private readonly useLam:       boolean;
+&nbsp;
+<span class="fstat-no" title="function not covered" >  constructor(</span>
+    private <span class="cstat-no" title="statement not covered" >config: C</span>onfigService,
+    private <span class="cstat-no" title="statement not covered" >at:     A</span>fricasTalkingProvider,
+  ) {
+<span class="cstat-no" title="statement not covered" >    this.lamUrl       = config.get('LAFRICAMOBILE_SMS_URL')     ?? '';</span>
+<span class="cstat-no" title="statement not covered" >    this.lamAccount   = config.get('LAFRICAMOBILE_ACCOUNT_ID')  ?? '';</span>
+<span class="cstat-no" title="statement not covered" >    this.lamPassword  = config.get('LAFRICAMOBILE_PASSWORD')    ?? '';</span>
+<span class="cstat-no" title="statement not covered" >    this.lamSenderOtp = config.get('LAFRICAMOBILE_SENDER_OTP')  ?? 'YIRACI';</span>
+<span class="cstat-no" title="statement not covered" >    this.lamSenderVas = config.get('LAFRICAMOBILE_SENDER_VAS')  ?? 'YIRAVAS';</span>
+<span class="cstat-no" title="statement not covered" >    this.lamSenderSos = config.get('LAFRICAMOBILE_SENDER_SOS')  ?? 'YIRASOS';</span>
+<span class="cstat-no" title="statement not covered" >    this.useLam       = this.lamAccount !== '' &amp;&amp;</span>
+                        this.lamAccount !== 'TON_LOGIN' &amp;&amp;
+                        this.lamAccount !== 'A_CONFIGURER_EN_PROD';
+  }
+&nbsp;
+<span class="fstat-no" title="function not covered" >  async </span>onModuleInit() {
+    const provider = <span class="cstat-no" title="statement not covered" >this.at.isReady() ? 'AfricasTalking' : this.useLam ? 'LAfricaMobile' : 'MOCK';</span>
+<span class="cstat-no" title="statement not covered" >    this.logger.log('[TELECOM] Provider actif: ' + provider);</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // OTP
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>sendOtp(telephone: string, code: string, pays = <span class="branch-0 cbranch-no" title="branch not covered" >'CI')</span>: Promise&lt;SmsResult&gt; {
+    const to = <span class="cstat-no" title="statement not covered" >this.formatTelephone(telephone, pays);</span>
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return this.at.sendOtp(to, code);</span></span>
+    const text = <span class="cstat-no" title="statement not covered" >'YIRA - Code: ' + code + '. Valable 10 min. Ne partagez pas.';</span>
+<span class="cstat-no" title="statement not covered" >    return this.sendLam(to, text, this.lamSenderOtp);</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // VAS push quiz
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>sendVas(telephone: string, content: string, pays = <span class="branch-0 cbranch-no" title="branch not covered" >'CI')</span>: Promise&lt;SmsResult&gt; {
+    const to = <span class="cstat-no" title="statement not covered" >this.formatTelephone(telephone, pays);</span>
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return this.at.sendVas(to, content);</span></span>
+<span class="cstat-no" title="statement not covered" >    return this.sendLam(to, content.slice(0, 160), this.lamSenderVas);</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // SOS urgence
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>sendSos(telephone: string, message: string, pays = <span class="branch-0 cbranch-no" title="branch not covered" >'CI')</span>: Promise&lt;SmsResult&gt; {
+    const to = <span class="cstat-no" title="statement not covered" >this.formatTelephone(telephone, pays);</span>
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return this.at.sendSos(to, message);</span></span>
+<span class="cstat-no" title="statement not covered" >    return this.sendLam(to, ('YIRA-SOS: ' + message).slice(0, 160), this.lamSenderSos);</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // STOP CONFIRM &lt; 5s ARTCI
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>sendStopConfirm(telephone: string, serviceCode: string, pays = <span class="branch-0 cbranch-no" title="branch not covered" >'CI')</span>: Promise&lt;SmsResult&gt; {
+    const to = <span class="cstat-no" title="statement not covered" >this.formatTelephone(telephone, pays);</span>
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return this.at.sendStopConfirm(to, serviceCode);</span></span>
+<span class="cstat-no" title="statement not covered" >    return this.sendLam(to, 'YIRA: Desabonnement ' + serviceCode + ' confirme. Merci!', this.lamSenderVas);</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // MODERATION ALERT 05h15
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>sendModerationAlert(telephone: string, groupe: string, nb: number): Promise&lt;SmsResult&gt; {
+    const to = <span class="cstat-no" title="statement not covered" >this.formatTelephone(telephone, 'CI');</span>
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return this.at.sendModerationAlert(to, groupe, nb);</span></span>
+<span class="cstat-no" title="statement not covered" >    return this.sendLam(to, 'YIRA-CMD: ' + nb + ' questions ' + groupe + ' a valider avant 07h45.', this.lamSenderOtp);</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // AIRTIME récompenses SARA
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>sendAirtime(telephone: string, montant: number, pays = <span class="branch-0 cbranch-no" title="branch not covered" >'CI')</span>: Promise&lt;SmsResult&gt; {
+    const to = <span class="cstat-no" title="statement not covered" >this.formatTelephone(telephone, pays);</span>
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return this.at.sendAirtime(to, montant);</span></span>
+<span class="cstat-no" title="statement not covered" >    this.logger.warn('[TELECOM] Airtime non disponible — LAM non configure');</span>
+<span class="cstat-no" title="statement not covered" >    return { success: false, provider: 'NONE', error: 'Provider non configure', fallback: true };</span>
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // CHECK CREDIT
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  async </span>checkCredit(): Promise&lt;number&gt; {
+<span class="cstat-no" title="statement not covered" >    if (this.at.isReady()) <span class="cstat-no" title="statement not covered" >return 999;</span></span>
+<span class="cstat-no" title="statement not covered" >    if (!this.useLam) <span class="cstat-no" title="statement not covered" >return 0;</span></span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+      const params   = <span class="cstat-no" title="statement not covered" >new URLSearchParams({ accountid: this.lamAccount, password: this.lamPassword });</span>
+      const response = <span class="cstat-no" title="statement not covered" >await fetch(this.lamUrl + '/credit?' + params.toString(), { method: 'GET' });</span>
+      const raw      = <span class="cstat-no" title="statement not covered" >await response.text();</span>
+<span class="cstat-no" title="statement not covered" >      return parseInt(raw.trim()) || 0;</span>
+    } catch { <span class="cstat-no" title="statement not covered" >return -1; </span>}
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // LAM fallback — GET XML
+  // ---------------------------------------------------------------------------
+  private <span class="fstat-no" title="function not covered" >async </span>sendLam(to: string, text: string, sender: string): Promise&lt;SmsResult&gt; {
+<span class="cstat-no" title="statement not covered" >    if (!this.useLam) {</span>
+<span class="cstat-no" title="statement not covered" >      this.logger.warn('[LAM][MOCK] SMS → ' + to + ' | ' + text);</span>
+<span class="cstat-no" title="statement not covered" >      return { success: true, provider: 'MOCK', fallback: true };</span>
+    }
+<span class="cstat-no" title="statement not covered" >    try {</span>
+      const xml = <span class="cstat-no" title="statement not covered" >'&lt;push&gt;&lt;message&gt;' +</span>
+        '&lt;accountid&gt;' + this.lamAccount + '&lt;/accountid&gt;' +
+        '&lt;password&gt;' + this.lamPassword + '&lt;/password&gt;' +
+        '&lt;sender&gt;' + sender + '&lt;/sender&gt;' +
+        '&lt;to&gt;' + to + '&lt;/to&gt;' +
+        '&lt;text&gt;' + this.escapeXml(text) + '&lt;/text&gt;' +
+        '&lt;/message&gt;&lt;/push&gt;';
+      const controller = <span class="cstat-no" title="statement not covered" >new AbortController();</span>
+      const timeout    = <span class="cstat-no" title="statement not covered" >setTimeout(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >controller.abort(),</span> 5000);</span>
+      const response   = <span class="cstat-no" title="statement not covered" >await fetch(this.lamUrl + '?xml=' + encodeURIComponent(xml), {</span>
+        method: 'GET', signal: controller.signal,
+      });
+<span class="cstat-no" title="statement not covered" >      clearTimeout(timeout);</span>
+      const raw = <span class="cstat-no" title="statement not covered" >await response.text();</span>
+<span class="cstat-no" title="statement not covered" >      this.logger.log('[LAM] SMS → ' + to + ' | HTTP ' + response.status + ' | ' + raw);</span>
+<span class="cstat-no" title="statement not covered" >      if (response.ok) <span class="cstat-no" title="statement not covered" >return { success: true, provider: 'LAFRICAMOBILE', messageId: raw, fallback: false };</span></span>
+<span class="cstat-no" title="statement not covered" >      return { success: false, provider: 'LAFRICAMOBILE', error: raw, fallback: false };</span>
+    } catch (err: any) {
+      const isTimeout = <span class="cstat-no" title="statement not covered" >err?.name === 'AbortError';</span>
+<span class="cstat-no" title="statement not covered" >      this.logger.error('[LAM] Echec → ' + to + ' | ' + (isTimeout ? 'TIMEOUT' : err.message));</span>
+<span class="cstat-no" title="statement not covered" >      return { success: false, provider: 'LAFRICAMOBILE', error: isTimeout ? 'TIMEOUT' : err.message, fallback: true };</span>
+    }
+  }
+&nbsp;
+  // ---------------------------------------------------------------------------
+  // FORMAT TELEPHONE
+  // ---------------------------------------------------------------------------
+<span class="fstat-no" title="function not covered" >  formatTelephone(</span>telephone: string, pays = <span class="branch-0 cbranch-no" title="branch not covered" >'CI')</span>: string {
+<span class="cstat-no" title="statement not covered" >  if (telephone.startsWith('+')) <span class="cstat-no" title="statement not covered" >return telephone;</span></span>
+<span class="cstat-no" title="statement not covered" >  if (telephone.startsWith('00')) <span class="cstat-no" title="statement not covered" >return '+' + telephone.slice(2);</span></span>
+  const clean = <span class="cstat-no" title="statement not covered" >telephone.replace(/\s/g, '');</span>
+  const prefixes: Record&lt;string, string&gt; = <span class="cstat-no" title="statement not covered" >{</span>
+    CI: '+225', SN: '+221', BF: '+226',
+    ML: '+223', GN: '+224', TG: '+228',
+  };
+  const prefix = <span class="cstat-no" title="statement not covered" >prefixes[pays] ?? '+225';</span>
+<span class="cstat-no" title="statement not covered" >  if (pays === 'CI') <span class="cstat-no" title="statement not covered" >return prefix + clean;</span></span>
+<span class="cstat-no" title="statement not covered" >  return prefix + clean.replace(/^0+/, '');</span>
+}
+private <span class="fstat-no" title="function not covered" >escapeXml(</span>text: string): string {
+<span class="cstat-no" title="statement not covered" >    return text.replace(/&amp;/g, '&amp;amp;').replace(/&lt;/g, '&amp;lt;')</span>
+               .replace(/&gt;/g, '&amp;gt;').replace(/"/g, '&amp;quot;').replace(/'/g, '&amp;apos;');
+  }
+}</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-05-19T14:09:22.320Z
+            </div>
+        <script src="../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
+    </body>
+</html>
+    

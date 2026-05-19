@@ -1,0 +1,421 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for src/seeds/seed.orientation.ci.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/seeds</a> seed.orientation.ci.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/9</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/0</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/9</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">﻿// =============================================================================
+// YIRA V3.0 — src/seeds/seed.orientation.ci.ts
+// Najo Technologies — CONFIDENTIEL
+// Sprint 10A — Seed officiel base_orientation
+// Données réelles MESRS CI (Mai 2026)
+// Sources :
+//   - bac.mesrs-ci.net (filières universités publiques)
+//   - PDF MESRS DESPRIV (147 établissements BTS privés)
+// RÈGLE : Ne jamais modifier les données MESRS directement
+//         Ajouter uniquement via seed versionné
+// =============================================================================
+// STATUT : En attente de base_orientation (sprint suivant)
+// Ce fichier contient les données de référence MESRS CI complètes.
+// L'exécution sera activée quand le client Prisma orientation sera généré.
+// =============================================================================
+&nbsp;
+// TODO Sprint base_orientation : décommenter ces lignes
+// import { PrismaClient } from '../../node_modules/.prisma/client-orientation';
+// const prisma = new PrismaClient({
+//   datasources: { db: { url: process.env.DATABASE_URL_ORIENTATION } },
+// });
+&nbsp;
+// ============================================================
+// 1. SÉRIES BAC CI OFFICIELLES (16 séries MESRS)
+// ============================================================
+const SERIES_BAC_CI = <span class="cstat-no" title="statement not covered" >[</span>
+  { code: 'A1', nom: 'Lettres, Philosophie et Langues',            domaine: 'LETTRES' },
+  { code: 'A2', nom: 'Lettres, Sciences Humaines et Sociales',     domaine: 'LETTRES' },
+  { code: 'B',  nom: 'Économie et Sciences Sociales',              domaine: 'ECONOMIE' },
+  { code: 'C',  nom: 'Mathématiques et Sciences Physiques',        domaine: 'SCIENCES' },
+  { code: 'D',  nom: 'Sciences de la Vie et de la Terre',          domaine: 'SCIENCES' },
+  { code: 'E',  nom: 'Mathématiques et Techniques',                domaine: 'TECHNIQUE' },
+  { code: 'F1', nom: 'STI — Génie Mécanique',                      domaine: 'TECHNIQUE' },
+  { code: 'F2', nom: 'STI — Génie Électrique',                     domaine: 'TECHNIQUE' },
+  { code: 'F3', nom: 'STI — Génie Civil',                          domaine: 'TECHNIQUE' },
+  { code: 'F4', nom: 'STI — Génie Chimique',                       domaine: 'TECHNIQUE' },
+  { code: 'G1', nom: 'STG — Administration',                       domaine: 'GESTION' },
+  { code: 'G2', nom: 'STG — Comptabilité',                         domaine: 'GESTION' },
+  { code: 'H1', nom: 'STS — Infirmerie',                           domaine: 'SANTE' },
+  { code: 'H2', nom: 'STS — Sage-Femme',                           domaine: 'SANTE' },
+  { code: 'H3', nom: 'STS — Aide Soignant',                        domaine: 'SANTE' },
+  { code: 'F7', nom: 'Sciences et Techniques Agricoles',           domaine: 'AGRICULTURE' },
+];
+&nbsp;
+// ============================================================
+// 2. FILIÈRES UNIVERSITÉS PUBLIQUES CI (extrait représentatif)
+// ============================================================
+const FILIERES_UNIVERSITE = <span class="cstat-no" title="statement not covered" >[</span>
+  { code: 'UNIV_MATHS_INFO',    nom: 'Mathématiques-Informatique',    domaine: 'SCIENCES_FONDAMENTALES', duree_annees: 3, universites: ['UFHB'], roi_index: 0.85, salaire_moy_fcfa: 500000, taux_emploi: 0.88, riasec: { R: 30, I: 90, A: 20, S: 30, E: 45, C: 65 } },
+  { code: 'UNIV_DROIT',         nom: 'Sciences Juridiques',           domaine: 'DROIT_ECONOMIE',         duree_annees: 5, universites: ['UFHB', 'UAO', 'UJLOG', 'UPGC'], roi_index: 0.70, salaire_moy_fcfa: 400000, taux_emploi: 0.72, riasec: { R: 10, I: 65, A: 25, S: 70, E: 80, C: 65 } },
+  { code: 'UNIV_ECONOMIE',      nom: 'Sciences Économiques',          domaine: 'DROIT_ECONOMIE',         duree_annees: 3, universites: ['UFHB', 'UAO'], roi_index: 0.78, salaire_moy_fcfa: 450000, taux_emploi: 0.78, riasec: { R: 20, I: 75, A: 25, S: 50, E: 70, C: 80 } },
+  { code: 'UNIV_MEDECINE',      nom: 'Médecine',                      domaine: 'SANTE',                  duree_annees: 7, universites: ['UFHB', 'UNA'], roi_index: 0.90, salaire_moy_fcfa: 800000, taux_emploi: 0.95, riasec: { R: 35, I: 85, A: 20, S: 90, E: 45, C: 55 } },
+  { code: 'UNIV_PHARMACIE',     nom: 'Pharmacie',                     domaine: 'SANTE',                  duree_annees: 6, universites: ['UFHB', 'UNA'], roi_index: 0.88, salaire_moy_fcfa: 600000, taux_emploi: 0.92, riasec: { R: 35, I: 80, A: 15, S: 70, E: 50, C: 65 } },
+  { code: 'UNIV_PSYCHOLOGIE',   nom: 'Psychologie',                   domaine: 'SHS',                    duree_annees: 5, universites: ['UFHB'], roi_index: 0.65, salaire_moy_fcfa: 300000, taux_emploi: 0.70, riasec: { R: 15, I: 70, A: 35, S: 85, E: 40, C: 45 } },
+  { code: 'UNIV_ANGLAIS',       nom: 'Anglais',                       domaine: 'LETTRES_LANGUES',        duree_annees: 3, universites: ['UFHB', 'UAO', 'UPGC'], roi_index: 0.60, salaire_moy_fcfa: 220000, taux_emploi: 0.65, riasec: { R: 20, I: 55, A: 50, S: 75, E: 45, C: 45 } },
+  { code: 'INFOCAD_DAS',        nom: "Développement d'Application",   domaine: 'NUMERIQUE',              duree_annees: 3, universites: ['INFOCAD'], roi_index: 0.90, salaire_moy_fcfa: 500000, taux_emploi: 0.88, riasec: { R: 35, I: 90, A: 30, S: 25, E: 55, C: 65 } },
+  { code: 'INFOCAD_RSI',        nom: 'Réseaux et Sécurité',           domaine: 'NUMERIQUE',              duree_annees: 3, universites: ['INFOCAD'], roi_index: 0.92, salaire_moy_fcfa: 550000, taux_emploi: 0.90, riasec: { R: 45, I: 88, A: 15, S: 25, E: 50, C: 70 } },
+];
+&nbsp;
+// ============================================================
+// 3. FILIÈRES BTS PRIVÉES CI (20 filières officielles MESRS)
+// ============================================================
+const FILIERES_BTS = <span class="cstat-no" title="statement not covered" >[</span>
+  { code: 'BTS_FINANCE_COMPTA', nom: 'Finance Comptabilité et Gestion', domaine: 'GESTION_FINANCE',    duree_annees: 2, roi_index: 0.80, salaire_moy_fcfa: 280000, taux_emploi: 0.78, nb_ecoles_ci: 95, riasec: { R: 15, I: 55, A: 10, S: 40, E: 65, C: 90 } },
+  { code: 'BTS_GESTION_COM',    nom: 'Gestion Commerciale',            domaine: 'COMMERCE',            duree_annees: 2, roi_index: 0.78, salaire_moy_fcfa: 260000, taux_emploi: 0.76, nb_ecoles_ci: 92, riasec: { R: 20, I: 40, A: 25, S: 65, E: 85, C: 60 } },
+  { code: 'BTS_INFO_DEV',       nom: "Informatique Développeur d'App", domaine: 'NUMERIQUE',           duree_annees: 2, roi_index: 0.88, salaire_moy_fcfa: 350000, taux_emploi: 0.85, nb_ecoles_ci: 65, riasec: { R: 40, I: 85, A: 20, S: 25, E: 45, C: 65 } },
+  { code: 'BTS_RH_COM',         nom: 'Ressources Humaines et Comm.',   domaine: 'RH_COMMUNICATION',    duree_annees: 2, roi_index: 0.72, salaire_moy_fcfa: 240000, taux_emploi: 0.72, nb_ecoles_ci: 60, riasec: { R: 15, I: 45, A: 45, S: 80, E: 65, C: 55 } },
+  { code: 'BTS_LOGISTIQUE',     nom: 'Logistique',                     domaine: 'LOGISTIQUE_TRANSPORT', duree_annees: 2, roi_index: 0.75, salaire_moy_fcfa: 270000, taux_emploi: 0.75, nb_ecoles_ci: 48, riasec: { R: 50, I: 55, A: 15, S: 40, E: 60, C: 75 } },
+  { code: 'BTS_RESEAUX_INFO',   nom: 'Réseaux Info et Télécommunication', domaine: 'NUMERIQUE',        duree_annees: 2, roi_index: 0.85, salaire_moy_fcfa: 320000, taux_emploi: 0.82, nb_ecoles_ci: 22, riasec: { R: 50, I: 82, A: 10, S: 20, E: 40, C: 65 } },
+  { code: 'BTS_GENIE_CIVIL',    nom: 'Génie Civil option Bâtiment',    domaine: 'BTP',                 duree_annees: 2, roi_index: 0.80, salaire_moy_fcfa: 290000, taux_emploi: 0.78, nb_ecoles_ci: 15, riasec: { R: 85, I: 60, A: 30, S: 25, E: 40, C: 55 } },
+  { code: 'BTS_ELEC',           nom: 'Electrotechnique',               domaine: 'TECHNIQUE_INDUSTRIE', duree_annees: 2, roi_index: 0.78, salaire_moy_fcfa: 280000, taux_emploi: 0.80, nb_ecoles_ci: 20, riasec: { R: 80, I: 65, A: 10, S: 20, E: 35, C: 55 } },
+  { code: 'BTS_MINES',          nom: 'Mines, Géologie et Pétrole',     domaine: 'MINES_ENERGIE',       duree_annees: 2, roi_index: 0.88, salaire_moy_fcfa: 400000, taux_emploi: 0.82, nb_ecoles_ci: 8,  riasec: { R: 80, I: 70, A: 10, S: 20, E: 40, C: 50 } },
+  { code: 'BTS_TOURISME',       nom: 'Tourisme et Hôtellerie',         domaine: 'TOURISME_HOTEL',      duree_annees: 2, roi_index: 0.65, salaire_moy_fcfa: 230000, taux_emploi: 0.68, nb_ecoles_ci: 30, riasec: { R: 25, I: 35, A: 45, S: 80, E: 65, C: 50 } },
+];
+&nbsp;
+// ============================================================
+// 4. ÉTABLISSEMENTS CLÉS CI (extrait des 147 MESRS)
+// ============================================================
+const ETABLISSEMENTS_CLES = <span class="cstat-no" title="statement not covered" >[</span>
+  { code: 'UFHB_COCODY',        nom: "Université Félix Houphouët-Boigny",      type: 'PUBLIC_UNIVERSITE',   zone: 'COCODY',        ville: 'Abidjan',       frais_annuels_fcfa: 0,       capacite_index: 5 },
+  { code: 'INP_HB_YAMOUSSOUKRO', nom: "Institut National Polytechnique FHB",   type: 'PUBLIC_GRANDE_ECOLE', zone: 'YAMOUSSOUKRO',  ville: 'Yamoussoukro',  frais_annuels_fcfa: 0,       capacite_index: 4 },
+  { code: 'UNA_ABOBO',          nom: 'Université Nangui Abrogoua',             type: 'PUBLIC_UNIVERSITE',   zone: 'ABOBO',         ville: 'Abidjan',       frais_annuels_fcfa: 0,       capacite_index: 3 },
+  { code: 'UAO_BOUAKE',         nom: 'Université Alassane Ouattara',           type: 'PUBLIC_UNIVERSITE',   zone: 'BOUAKE',        ville: 'Bouaké',        frais_annuels_fcfa: 0,       capacite_index: 3 },
+  { code: 'UPGC_KORHOGO',       nom: 'Université Peleforo Gon Coulibaly',      type: 'PUBLIC_UNIVERSITE',   zone: 'KORHOGO',       ville: 'Korhogo',       frais_annuels_fcfa: 0,       capacite_index: 2 },
+  { code: 'PIGIER_PLATEAU',     nom: "PIGIER Côte d'Ivoire",                   type: 'PRIVE_BTS',           zone: 'PLATEAU',       ville: 'Abidjan',       frais_annuels_fcfa: 600000,  capacite_index: 5 },
+  { code: 'IST_LA_COLOMBE',     nom: 'IST La Colombe',                         type: 'PRIVE_BTS',           zone: 'KOUMASSI',      ville: 'Abidjan',       frais_annuels_fcfa: 400000,  capacite_index: 5 },
+  { code: 'ESTIC_ABIDJAN',      nom: 'ESTIC — École Sup. Tech. et Informatique', type: 'PRIVE_BTS',         zone: 'COCODY',        ville: 'Abidjan',       frais_annuels_fcfa: 550000,  capacite_index: 4 },
+  { code: 'EPCCI_PLATEAU',      nom: 'EPCCI — École Pratique CCI',             type: 'PRIVE_BTS',           zone: 'PLATEAU',       ville: 'Abidjan',       frais_annuels_fcfa: 700000,  capacite_index: 4 },
+  { code: 'HETEC_BOUAKE',       nom: 'HETEC Bouaké',                           type: 'PRIVE_BTS',           zone: 'BOUAKE',        ville: 'Bouaké',        frais_annuels_fcfa: 350000,  capacite_index: 3 },
+  { code: 'ISCAE_YAMOUSSOUKRO', nom: 'ISCAE Yamoussoukro',                     type: 'PRIVE_BTS',           zone: 'YAMOUSSOUKRO',  ville: 'Yamoussoukro',  frais_annuels_fcfa: 350000,  capacite_index: 3 },
+  { code: 'INFOCAD_ABIDJAN',    nom: 'INFOCAD',                                type: 'PRIVE_UNIVERSITE',    zone: 'COCODY',        ville: 'Abidjan',       frais_annuels_fcfa: 800000,  capacite_index: 4 },
+];
+&nbsp;
+// ============================================================
+// EXPORT — Ces données seront utilisées par le seed base_orientation
+// ============================================================
+export const <span class="cstat-no" title="statement not covered" >MESRS_DATA = {</span>
+  seriesBac:           SERIES_BAC_CI,
+  filieresUniversite:  FILIERES_UNIVERSITE,
+  filieresBts:         FILIERES_BTS,
+  etablissements:      ETABLISSEMENTS_CLES,
+};
+&nbsp;
+// ============================================================
+// SEED PRINCIPAL — Activé au Sprint base_orientation
+// ============================================================
+async function <span class="fstat-no" title="function not covered" >main(</span>) {
+<span class="cstat-no" title="statement not covered" >  console.log('⏸️  Seed base_orientation en attente — client Prisma non encore généré.');</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`   Données prêtes : ${SERIES_BAC_CI.length} séries BAC | ${FILIERES_UNIVERSITE.length} filières U. | ${FILIERES_BTS.length} BTS | ${ETABLISSEMENTS_CLES.length} établissements`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log('   TODO : décommenter le client Prisma et les upserts quand base_orientation sera créée.');</span>
+}
+&nbsp;
+<span class="cstat-no" title="statement not covered" >main().catch(console.error);</span></pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-05-19T14:09:22.320Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

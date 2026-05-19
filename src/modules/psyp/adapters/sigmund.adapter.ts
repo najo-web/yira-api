@@ -1,6 +1,6 @@
-// =============================================================================
-// YIRA V3.0 — Sigmund SOAP Adapter
-// Sprint 48 — Webservices Sigmund V3.4
+﻿// =============================================================================
+// YIRA V3.0 â€” Sigmund SOAP Adapter
+// Sprint 48 â€” Webservices Sigmund V3.4
 // URL : http://www.webservicesigmundtest.sigmundtest.com
 // CLIENT_ID : 8937-6771-8414-4521 | PRODUCT_CODE : 25
 // =============================================================================
@@ -24,10 +24,10 @@ export class SigmundAdapter implements PsyPAdapter {
   }
 
   // ---------------------------------------------------------------------------
-  // WS1 — Ouvrir une session de test
+  // WS1 â€” Ouvrir une session de test
   // ---------------------------------------------------------------------------
   async ouvrirSession(candidat: CandidatPsyP): Promise<SessionPsyP> {
-    this.logger.log('[SIGMUND] WS1 — Setup test pour ' + candidat.telephone);
+    this.logger.log('[SIGMUND] WS1 â€” Setup test pour ' + candidat.telephone);
     try {
       const url = this.baseUrl +
         '/sigmundtest_1_setup_quick_test(' +
@@ -64,7 +64,7 @@ export class SigmundAdapter implements PsyPAdapter {
   }
 
   // ---------------------------------------------------------------------------
-  // WS2 — Enregistrer nom du candidat
+  // WS2 â€” Enregistrer nom du candidat
   // ---------------------------------------------------------------------------
   async enregistrerNom(sessionId: string, prenom: string, nom: string): Promise<void> {
     const url = this.baseUrl +
@@ -81,21 +81,21 @@ export class SigmundAdapter implements PsyPAdapter {
     if (data?.erreur_bool === 'true') {
       throw new Error('Sigmund WS2 erreur: ' + data?.erreur);
     }
-    this.logger.log('[SIGMUND] WS2 — Nom enregistré: ' + prenom + ' ' + nom);
+    this.logger.log('[SIGMUND] WS2 â€” Nom enregistrÃ©: ' + prenom + ' ' + nom);
   }
 
   // ---------------------------------------------------------------------------
-  // WS3 — Enregistrer signalétiques (genre, âge, diplôme...)
+  // WS3 â€” Enregistrer signalÃ©tiques (genre, Ã¢ge, diplÃ´me...)
   // ---------------------------------------------------------------------------
   async enregistrerSignaletiques(sessionId: string, candidat: CandidatPsyP): Promise<void> {
-    // Mapping YIRA → Sigmund signalétiques
+    // Mapping YIRA â†’ Sigmund signalÃ©tiques
     const signaux = [
       { no: 1, val: candidat.genre === 'M' ? 1 : 2 },      // Sexe
       { no: 2, val: candidat.age_code },                    // Age
-      { no: 3, val: candidat.experience_code },              // Expérience
-      { no: 4, val: candidat.diplome_code },                 // Diplôme
-      { no: 5, val: candidat.formation_code ?? 4 },          // Formation (Scientifique défaut)
-      { no: 6, val: candidat.statut_code ?? 7 },             // Statut (Etudiant défaut)
+      { no: 3, val: candidat.experience_code },              // ExpÃ©rience
+      { no: 4, val: candidat.diplome_code },                 // DiplÃ´me
+      { no: 5, val: candidat.formation_code ?? 4 },          // Formation (Scientifique dÃ©faut)
+      { no: 6, val: candidat.statut_code ?? 7 },             // Statut (Etudiant dÃ©faut)
     ];
 
     for (const signal of signaux) {
@@ -110,14 +110,14 @@ export class SigmundAdapter implements PsyPAdapter {
       const text = await res.text();
       await this.parseXML(text);
     }
-    this.logger.log('[SIGMUND] WS3 — Signalétiques enregistrées');
+    this.logger.log('[SIGMUND] WS3 â€” SignalÃ©tiques enregistrÃ©es');
   }
 
   // ---------------------------------------------------------------------------
-  // WS4 READ — Charger toutes les questions
+  // WS4 READ â€” Charger toutes les questions
   // ---------------------------------------------------------------------------
   async chargerQuestions(sessionId: string): Promise<QuestionPsyP[]> {
-    this.logger.log('[SIGMUND] WS4 READ — Chargement questions session: ' + sessionId);
+    this.logger.log('[SIGMUND] WS4 READ â€” Chargement questions session: ' + sessionId);
     const url = this.baseUrl +
       '/sigmundtest_4_read_question_1_to_x(' +
       '"' + this.clientId + '",' +
@@ -158,15 +158,15 @@ export class SigmundAdapter implements PsyPAdapter {
       });
     }
 
-    this.logger.log('[SIGMUND] WS4 — ' + questions.length + ' questions chargées');
+    this.logger.log('[SIGMUND] WS4 â€” ' + questions.length + ' questions chargÃ©es');
     return questions;
   }
 
   // ---------------------------------------------------------------------------
-  // WS4 WRITE — Enregistrer les réponses
+  // WS4 WRITE â€” Enregistrer les rÃ©ponses
   // ---------------------------------------------------------------------------
   async enregistrerReponses(sessionId: string, reponses: ReponsePsyP[]): Promise<void> {
-    this.logger.log('[SIGMUND] WS4 WRITE — ' + reponses.length + ' réponses');
+    this.logger.log('[SIGMUND] WS4 WRITE â€” ' + reponses.length + ' rÃ©ponses');
 
     // Construire la structure sigmund_reponse
     const repStr = reponses.map(r => r.reponse_index).join(',');
@@ -183,14 +183,14 @@ export class SigmundAdapter implements PsyPAdapter {
     if (data?.erreur_bool === 'true') {
       throw new Error('Sigmund WS4W erreur: ' + data?.erreur);
     }
-    this.logger.log('[SIGMUND] WS4 WRITE — Réponses enregistrées');
+    this.logger.log('[SIGMUND] WS4 WRITE â€” RÃ©ponses enregistrÃ©es');
   }
 
   // ---------------------------------------------------------------------------
-  // WS6 — Récupérer les scores bruts
+  // WS6 â€” RÃ©cupÃ©rer les scores bruts
   // ---------------------------------------------------------------------------
   async recupererScores(sessionId: string): Promise<ScoresBrutsPsyP> {
-    this.logger.log('[SIGMUND] WS6 — Récupération scores: ' + sessionId);
+    this.logger.log('[SIGMUND] WS6 â€” RÃ©cupÃ©ration scores: ' + sessionId);
     const url = this.baseUrl +
       '/sigmundtest_6_assessement2data(' +
       '"' + this.clientId + '",' +
@@ -217,7 +217,7 @@ export class SigmundAdapter implements PsyPAdapter {
       scoresBruts[crit] = parseInt(bruts[i] ?? '0');
     });
 
-    this.logger.log('[SIGMUND] WS6 — Scores: ' + Object.keys(scores).join(', '));
+    this.logger.log('[SIGMUND] WS6 â€” Scores: ' + Object.keys(scores).join(', '));
 
     return {
       provider:      'SIGMUND',
@@ -234,7 +234,7 @@ export class SigmundAdapter implements PsyPAdapter {
   }
 
   // ---------------------------------------------------------------------------
-  // WS5 — Générer rapport PDF
+  // WS5 â€” GÃ©nÃ©rer rapport PDF
   // ---------------------------------------------------------------------------
   async genererRapportPDF(sessionId: string, email?: string): Promise<string> {
     const url = this.baseUrl +
@@ -242,9 +242,9 @@ export class SigmundAdapter implements PsyPAdapter {
       '"' + this.clientId + '",' +
       '"' + sessionId + '",' +
       '"JOBEGGS","PDF","0","sigmundtest.com",' +
-      '"hello@yira.ci",' +
-      '"' + (email ?? 'noreply@yira.ci') + '",' +
-      '"Résultat YIRA-Sigmund",' +
+      '"hello@yira.africa",' +
+      '"' + (email ?? 'noreply@yira.africa') + '",' +
+      '"RÃ©sultat YIRA-Sigmund",' +
       '"Votre bilan YIRA est disponible",' +
       '"YIRA_RAPPORT_' + sessionId + '")';
 
@@ -253,7 +253,7 @@ export class SigmundAdapter implements PsyPAdapter {
     const data = await this.parseXML(text);
 
     const lien = this.toArray(data?.label_string ?? data?.string)[0] ?? '';
-    this.logger.log('[SIGMUND] WS5 — Rapport PDF: ' + lien);
+    this.logger.log('[SIGMUND] WS5 â€” Rapport PDF: ' + lien);
     return lien;
   }
 
@@ -284,7 +284,7 @@ export class SigmundAdapter implements PsyPAdapter {
     return str.replace(/['"]/g, '').trim();
   }
 
-  // Mapping diplôme YIRA → code Sigmund
+  // Mapping diplÃ´me YIRA â†’ code Sigmund
   static mapDiplomeCI(niveau: string): number {
     const map: Record<string, number> = {
       'SANS_DIPLOME': 1, 'CEP': 2, 'CAP': 3,
@@ -294,7 +294,7 @@ export class SigmundAdapter implements PsyPAdapter {
     return map[niveau] ?? 5;
   }
 
-  // Mapping age YIRA → code Sigmund
+  // Mapping age YIRA â†’ code Sigmund
   static mapAgeCI(age: number): number {
     if (age < 20) return 1;
     if (age <= 25) return 2;

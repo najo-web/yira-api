@@ -1,7 +1,7 @@
-// =============================================================================
-// YIRA V3.0 — PackParentsService
-// Sprint 46 — Pack Parents 1000 FCFA (10 SMS + QR rapport)
-// L2 §3.2 : Engagement parental — suivi progression enfant
+﻿// =============================================================================
+// YIRA V3.0 â€” PackParentsService
+// Sprint 46 â€” Pack Parents 1000 FCFA (10 SMS + QR rapport)
+// L2 Â§3.2 : Engagement parental â€” suivi progression enfant
 // =============================================================================
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -48,7 +48,7 @@ export class PackParentsService implements OnModuleInit {
   ): Promise<any> {
     const montant = typePack === 'TRIMESTRIEL' ? 2500 : 1000;
 
-    // Vérifier pack actif existant
+    // VÃ©rifier pack actif existant
     const existing = await this.pool.query(
       'SELECT id FROM yira_pack_parents WHERE telephone_parent=$1 AND telephone_enfant=$2 AND tenant_id=$3 AND statut=$4',
       [telephoneParent, telephoneEnfant, tenantId, 'ACTIF']
@@ -58,7 +58,7 @@ export class PackParentsService implements OnModuleInit {
     }
 
     // Paiement Mobile Money
-    const paiement = await this.payment.debiter(telephoneParent, montant, 'YIRA Pack Parents — Suivi ' + nomEnfant, tenantId);
+    const paiement = await this.payment.debiter(telephoneParent, montant, 'YIRA Pack Parents â€” Suivi ' + nomEnfant, tenantId);
     if (!paiement.success) {
       return { success: false, message: 'Paiement echoue: ' + (paiement.error ?? 'Solde insuffisant') };
     }
@@ -67,7 +67,7 @@ export class PackParentsService implements OnModuleInit {
     const dateFin = new Date();
     dateFin.setMonth(dateFin.getMonth() + (typePack === 'TRIMESTRIEL' ? 3 : 1));
 
-    // Créer pack
+    // CrÃ©er pack
     const res = await this.pool.query(`
       INSERT INTO yira_pack_parents
         (tenant_id, telephone_parent, telephone_enfant, nom_enfant, niveau_enfant,
@@ -81,7 +81,7 @@ export class PackParentsService implements OnModuleInit {
 
     const packId = res.rows[0].id;
 
-    // Générer les 10 SMS d'alertes planifiées
+    // GÃ©nÃ©rer les 10 SMS d'alertes planifiÃ©es
     await this.planifierSMS(packId, nomEnfant, niveauEnfant, tenantId);
 
     // SMS de bienvenue au parent
@@ -90,7 +90,7 @@ export class PackParentsService implements OnModuleInit {
     await this.telecom.sendVas(telephoneParent, msgBienvenue, tenantId);
 
     // QR code (URL rapport)
-    const qrCode = 'https://yira.ci/rapport/' + packId;
+    const qrCode = 'https://yira.africa/rapport/' + packId;
     await this.pool.query(
       'UPDATE yira_pack_parents SET rapport_qr_code=$1, updated_at=NOW() WHERE id=$2',
       [qrCode, packId]
@@ -125,7 +125,7 @@ export class PackParentsService implements OnModuleInit {
       { type: 'PLAN_ACTION',    contenu: 'Plan d action de ' + nomEnfant + ' pour les 30 prochains jours est pret. 3 actions prioritaires a faire ensemble.' },
       { type: 'MI_PARCOURS',    contenu: 'Bilan mi-parcours de ' + nomEnfant + ' : objectifs atteints a 60%. Consultez le rapport complet.' },
       { type: 'ALERTE_RISQUE',  contenu: 'YIRA detecte que ' + nomEnfant + ' a besoin de renforcement en Mathematiques. Nous vous recommandons un cours de soutien.' },
-      { type: 'BILAN_FINAL',    contenu: 'Bilan final du mois de ' + nomEnfant + ' disponible. Telechargez son Passeport de Competences YIRA sur yira.ci' },
+      { type: 'BILAN_FINAL',    contenu: 'Bilan final du mois de ' + nomEnfant + ' disponible. Telechargez son Passeport de Competences YIRA sur yira.africa' },
     ];
 
     for (const alerte of typesAlertes) {
@@ -165,12 +165,12 @@ export class PackParentsService implements OnModuleInit {
       [packId]
     );
 
-    this.logger.log('[PACK-PARENTS] SMS envoye: ' + sms.type_alerte + ' → ' + pack.rows[0].telephone_parent);
+    this.logger.log('[PACK-PARENTS] SMS envoye: ' + sms.type_alerte + ' â†’ ' + pack.rows[0].telephone_parent);
     return { success: true, type_alerte: sms.type_alerte, contenu: sms.contenu, envoye: envoie };
   }
 
   // ---------------------------------------------------------------------------
-  // GÉNÉRER RAPPORT PARENT (IA inculturé)
+  // GÃ‰NÃ‰RER RAPPORT PARENT (IA inculturÃ©)
   // ---------------------------------------------------------------------------
   async genererRapport(packId: string, profilEnfant: any, tenantId = 'CI'): Promise<any> {
     const pack = await this.pool.query(
