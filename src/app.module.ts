@@ -23,6 +23,7 @@ import { AntifraudeModule } from './modules/antifraude/antifraude.module';
 import { RescueModule } from './modules/rescue/rescue.module';
 import { CQCIModule } from './modules/cqci/cqci.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { PackParentsModule } from './modules/pack-parents/pack-parents.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ObservabilityModule } from './observability/observability.module';
     RescueModule,
     CQCIModule,
     ObservabilityModule,
+    PackParentsModule,
   ],
 })
 export class AppModule {}
