@@ -1,7 +1,7 @@
 ﻿{
   "compilerOptions": {
-    "module": "NodeNext",          /* CORRIGÉ : Aligné avec moduleResolution */
-    "moduleResolution": "NodeNext", /* Conservé */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "ES2021",
     "outDir": "./dist",
     "sourceMap": true,
@@ -13,11 +13,12 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true, 
+    "strict": true,
     "skipLibCheck": true,
     "noImplicitAny": false,
     "strictBindCallApply": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["jest", "node"]
   },
   "exclude": ["node_modules", "dist"]
 }
