@@ -22,6 +22,7 @@ import { PasseportModule } from './modules/passeport/passeport.module';
 import { AntifraudeModule } from './modules/antifraude/antifraude.module';
 import { RescueModule } from './modules/rescue/rescue.module';
 import { CQCIModule } from './modules/cqci/cqci.module';
+import { ObservabilityModule } from './observability/observability.module';
 
 @Module({
   imports: [
@@ -47,7 +48,8 @@ import { CQCIModule } from './modules/cqci/cqci.module';
     PasseportModule,
     AntifraudeModule,
     RescueModule,
-    CQCIModule
+    CQCIModule,
+    ObservabilityModule,
   ],
 })
 export class AppModule {}
