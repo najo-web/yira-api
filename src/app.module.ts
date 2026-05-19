@@ -24,6 +24,7 @@ import { RescueModule } from './modules/rescue/rescue.module';
 import { CQCIModule } from './modules/cqci/cqci.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { PackParentsModule } from './modules/pack-parents/pack-parents.module';
+import { EtudeModule } from './modules/etude/etude.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { PackParentsModule } from './modules/pack-parents/pack-parents.module';
     CQCIModule,
     ObservabilityModule,
     PackParentsModule,
+    EtudeModule,
   ],
 })
 export class AppModule {}
