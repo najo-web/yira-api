@@ -55,13 +55,14 @@ export class PsyPService implements OnModuleInit {
       this.adapters.set('SIGMUND', new SigmundAdapter(sigmundClientId, sigmundProdCode));
 
       // ── Providers internes YIRA (avec poolCore pour base_core) ──────────
-      this.adapters.set('YIRA',           new YiraAdapter(this.pool, 'RIASEC',    'STANDARD', this.poolCore));
-      this.adapters.set('YIRA_EXPRESS',   new YiraAdapter(this.pool, 'RIASEC',    'EXPRESS',  this.poolCore));
-      this.adapters.set('YIRA_COMPLET',   new YiraAdapter(this.pool, 'COMPLET',   'STANDARD', this.poolCore));
-      this.adapters.set('YIRA_BIGFIVE',   new YiraAdapter(this.pool, 'BIGFIVE',   'STANDARD', this.poolCore));
-      this.adapters.set('YIRA_VALEURS',   new YiraAdapter(this.pool, 'VALEURS',   'STANDARD', this.poolCore));
-      this.adapters.set('YIRA_APTITUDES', new YiraAdapter(this.pool, 'APTITUDES', 'STANDARD', this.poolCore));
-      this.adapters.set('YIRA_CQCI',      new YiraAdapter(this.pool, 'CQCI',      'STANDARD', this.poolCore));
+      const redisUrl = this.config.get('REDIS_URL') ?? 'redis://localhost:6379';
+      this.adapters.set('YIRA',           new YiraAdapter(this.pool, 'RIASEC',    'STANDARD', this.poolCore, redisUrl));
+      this.adapters.set('YIRA_EXPRESS',   new YiraAdapter(this.pool, 'RIASEC',    'EXPRESS',  this.poolCore, redisUrl));
+      this.adapters.set('YIRA_COMPLET',   new YiraAdapter(this.pool, 'COMPLET',   'STANDARD', this.poolCore, redisUrl));
+      this.adapters.set('YIRA_BIGFIVE',   new YiraAdapter(this.pool, 'BIGFIVE',   'STANDARD', this.poolCore, redisUrl));
+      this.adapters.set('YIRA_VALEURS',   new YiraAdapter(this.pool, 'VALEURS',   'STANDARD', this.poolCore, redisUrl));
+      this.adapters.set('YIRA_APTITUDES', new YiraAdapter(this.pool, 'APTITUDES', 'STANDARD', this.poolCore, redisUrl));
+      this.adapters.set('YIRA_CQCI',      new YiraAdapter(this.pool, 'CQCI',      'STANDARD', this.poolCore, redisUrl));
 
       this.logger.log('[PSYP] PsyPService prêt — Providers: ' + Array.from(this.adapters.keys()).join(', '));
     } catch (e: any) {

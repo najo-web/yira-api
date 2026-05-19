@@ -1,6 +1,6 @@
 // =============================================================================
 // YIRA V3.0 — YiraAdapter Tests
-// Sprint 49 — Tests calcul scores RIASEC, BigFive, Valeurs
+// Sprint 52 — Sessions Redis (fallback Map en test)
 // =============================================================================
 import { YiraAdapter } from './yira.adapter';
 
@@ -9,29 +9,26 @@ describe('YiraAdapter — Calcul scores', () => {
   const mockPool = { query: jest.fn(), connect: jest.fn() } as any;
 
   beforeEach(() => {
-    adapter = new YiraAdapter(mockPool, 'RIASEC', 'STANDARD', mockPool);
+    adapter = new YiraAdapter(mockPool, 'RIASEC', 'STANDARD', mockPool, '');
+  });
+
+  afterAll(async () => {
+    await new Promise(r => setTimeout(r, 100));
   });
 
   // ── RIASEC ────────────────────────────────────────────────────────────
   describe('calculerRIASEC (via recupererScores)', () => {
     it('devrait calculer 6 axes RIASEC', async () => {
-      const sessionId = 'TEST-001';
-      await adapter.ouvrirSession({ telephone:'+2250708647166', prenom:'Test', nom:'User', genre:'M', age_code:2, diplome_code:5, experience_code:1, tenant_id:'CI' });
-
-      // Simuler réponses 60Q (10 par axe, score 4/6)
+      const session  = await adapter.ouvrirSession({
+        telephone:'+2250708647166', prenom:'Test', nom:'User',
+        genre:'M', age_code:2, diplome_code:5, experience_code:1, tenant_id:'CI',
+      });
       const reponses = Array.from({ length: 60 }, (_, i) => ({
         question_numero: i + 1,
         reponse_index:   4,
       }));
-
-      // Injecter les réponses directement via enregistrerReponses
-      const sessions = (adapter as any).sessions;
-      const session  = sessions.values().next().value;
-      if (session) session.reponses = reponses;
-
-      const scores = await adapter.recupererScores(sessionId === 'TEST-001'
-        ? sessions.keys().next().value : sessionId);
-
+      await adapter.enregistrerReponses(session.session_id, reponses);
+      const scores = await adapter.recupererScores(session.session_id);
       expect(scores.scores).toBeDefined();
       expect(scores.criteres).toHaveLength(6);
       expect(['R','I','A','S','E','C']).toEqual(expect.arrayContaining(scores.criteres));
@@ -67,7 +64,11 @@ describe('YiraAdapter — Calcul scores', () => {
     let adapterBF: YiraAdapter;
 
     beforeEach(() => {
-      adapterBF = new YiraAdapter(mockPool, 'BIGFIVE', 'STANDARD', mockPool);
+      adapterBF = new YiraAdapter(mockPool, 'BIGFIVE', 'STANDARD', mockPool, '');
+    });
+
+    afterAll(async () => {
+      await new Promise(r => setTimeout(r, 100));
     });
 
     it('devrait calculer 5 dimensions OCEAN', async () => {
@@ -76,8 +77,7 @@ describe('YiraAdapter — Calcul scores', () => {
         genre:'F', age_code:2, diplome_code:5, experience_code:1, tenant_id:'CI',
       });
       const reponses = Array.from({ length: 40 }, (_, i) => ({
-        question_numero: i + 1,
-        reponse_index:   4,
+        question_numero: i + 1, reponse_index: 4,
       }));
       await adapterBF.enregistrerReponses(session.session_id, reponses);
       const scores = await adapterBF.recupererScores(session.session_id);
@@ -89,14 +89,11 @@ describe('YiraAdapter — Calcul scores', () => {
         telephone:'+2250708647166', prenom:'Test', nom:'User',
         genre:'M', age_code:2, diplome_code:5, experience_code:1, tenant_id:'CI',
       });
-      // Réponses uniformes score 4 → A brut = 66.7
       const reponses = Array.from({ length: 40 }, (_, i) => ({
-        question_numero: i + 1,
-        reponse_index:   4,
+        question_numero: i + 1, reponse_index: 4,
       }));
       await adapterBF.enregistrerReponses(session.session_id, reponses);
-      const scores = await adapterBF.recupererScores(session.session_id);
-      // A doit être amplifié ×1.15 par rapport aux autres dimensions
+      const scores     = await adapterBF.recupererScores(session.session_id);
       const autresDims = ['O','C','E','N'].map(d => scores.scores[d]);
       const moyAutres  = autresDims.reduce((a,b) => a+b, 0) / autresDims.length;
       expect(scores.scores['A']).toBeGreaterThanOrEqual(moyAutres);
@@ -121,6 +118,16 @@ describe('YiraAdapter — Calcul scores', () => {
       });
       expect(session.provider).toBe('YIRA');
       expect(session.candidat.telephone).toBe('+2250101987654');
+    });
+
+    it('session stockée en fallback Map si Redis absent', async () => {
+      const session = await adapter.ouvrirSession({
+        telephone:'+2250708647166', prenom:'Test', nom:'User',
+        genre:'M', age_code:2, diplome_code:5, experience_code:1, tenant_id:'CI',
+      });
+      const info = await adapter.getSessionInfo(session.session_id);
+      expect(info.existe).toBe(true);
+      expect(info.stockage).toBe('MAP_FALLBACK');
     });
   });
 });
